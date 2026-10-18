@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="library_back">戻る</string>
+  <string name="library_folders">対象フォルダ</string>
+  <string name="library_folder_help">選択したフォルダとその配下だけを読み込みます。動画と音声は別々に指定できます。対象から外してもファイルは削除されません。</string>
+  <string name="library_video_folders">動画の対象フォルダ</string>
+  <string name="library_audio_folders">音声の対象フォルダ</string>
+  <string name="library_select_prompt">対象フォルダが未選択です。「対象フォルダ」から追加すると読み込みを開始します。</string>
+  <string name="library_add_folder">フォルダを追加</string>
+  <string name="library_remove">対象から外す</string>
+  <string name="library_notification_title">画面オフでも再生する</string>
+  <string name="library_notification_help">動画・音声ともにバックグラウンド再生は初期設定で有効です。このアプリでは、画面オフ再生とロック画面の一時停止・再開操作に通知の許可が必要です。拒否するとバックグラウンド再生が止まります。後から一覧画面のボタンで通知設定を開いて許可できます。</string>
+  <string name="library_notification_allow">通知を許可</string>
+  <string name="library_notification_blocked">通知が不許可のため画面オフ再生できません。通知設定を開く</string>
+  <string name="library_later">後で</string>
+  <string name="library_playlist_help">プレイリストを作成・選択 → ファイルを追加 → 再生。プレイリストは自動保存されます。</string>
+</resources>

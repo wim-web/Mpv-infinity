@@ -23,6 +23,9 @@ enum class BlacklistScope {
 class FoldersPreferences(
   preferenceStore: PreferenceStore,
 ) {
+  val selectedVideoFolders = preferenceStore.getStringSet("selected_video_folders", emptySet())
+  val selectedAudioFolders = preferenceStore.getStringSet("selected_audio_folders", emptySet())
+
   // Root folder from which all app storage paths are derived
   val baseStorageFolder = preferenceStore.getString("base_storage_folder", "")
 

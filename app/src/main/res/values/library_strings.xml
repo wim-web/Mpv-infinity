@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="library_back">Back</string>
+  <string name="library_folders">Library folders</string>
+  <string name="library_folder_help">Only selected folders and their subfolders are loaded. Video and audio selections are independent. Removing a folder does not delete its files.</string>
+  <string name="library_video_folders">Video folders</string>
+  <string name="library_audio_folders">Audio folders</string>
+  <string name="library_select_prompt">No folders selected. Choose Library folders to start loading media.</string>
+  <string name="library_add_folder">Add folder</string>
+  <string name="library_remove">Remove</string>
+  <string name="library_notification_title">Allow screen-off playback</string>
+  <string name="library_notification_help">Background playback is enabled by default for video and audio. This app needs notifications to continue playing with the screen off and to provide lock-screen pause and resume controls. If notifications are denied, background playback stops. You can enable notifications later from the button on the library screen.</string>
+  <string name="library_notification_allow">Allow notifications</string>
+  <string name="library_notification_blocked">Screen-off playback is blocked: enable notifications in Settings</string>
+  <string name="library_later">Later</string>
+  <string name="library_playlist_help">Create or open a playlist → Add files → Play. Playlists are saved automatically.</string>
+</resources>

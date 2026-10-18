@@ -131,6 +131,9 @@ class FileSystemBrowserViewModel(
     }
   }
 
+  private var libraryLoadJob: kotlinx.coroutines.Job? = null
+  private var libraryScopeKey = MediaFileRepository.currentScanOptions().cacheKey
+
   init {
     // If no initial path was specified, check storage volumes and navigate accordingly
     if (initialPath == null) {
@@ -161,6 +164,14 @@ class FileSystemBrowserViewModel(
     // Similar to Fossify's media scan completion listener
     viewModelScope.launch(Dispatchers.IO) {
       MediaLibraryEvents.changes.collectLatest {
+        val scopeKey = MediaFileRepository.currentScanOptions().cacheKey
+        if (scopeKey != libraryScopeKey) {
+          libraryScopeKey = scopeKey
+          homeDirectory = null
+          _currentPath.value = STORAGE_ROOTS_MARKER
+        }
+        _items.value = emptyList()
+        _unsortedItems.value = emptyList()
         MediaFileRepository.invalidateTreeCache()
         loadCurrentDirectory()
       }
@@ -247,6 +258,7 @@ class FileSystemBrowserViewModel(
       }
 
       val folder = File(path)
+      if (!MediaFileRepository.currentScanOptions(includeAudioOverride = true).allowsDirectory(folder)) return
 
       if (folder.exists() && folder.isDirectory) {
         // Scan all video files in the folder
@@ -286,17 +298,6 @@ class FileSystemBrowserViewModel(
         } else {
           Log.d(TAG, "No video files found in folder: $path")
         }
-      } else {
-        // Fallback to scanning external storage root
-        val externalStorage = android.os.Environment.getExternalStorageDirectory()
-        android.media.MediaScannerConnection.scanFile(
-          getApplication(),
-          arrayOf(externalStorage.absolutePath),
-          null,
-        ) { scanPath, uri ->
-          Log.d(TAG, "Media scan completed for: $scanPath -> $uri")
-        }
-        Log.d(TAG, "Triggered media scan for: ${externalStorage.absolutePath}")
       }
     } catch (e: Exception) {
       Log.e(TAG, "Failed to trigger media scan", e)
@@ -422,7 +423,8 @@ class FileSystemBrowserViewModel(
    * Main loading logic based on Fossify's getItems() and getRegularItemsOf()
    */
   private fun loadCurrentDirectory(forceFileSystemCheck: Boolean = false) {
-    viewModelScope.launch(Dispatchers.IO) {
+    libraryLoadJob?.cancel()
+    libraryLoadJob = viewModelScope.launch(Dispatchers.IO) {
       _isLoading.value = true
       _error.value = null
       // Don't reset the flag here - let navigation handle it
@@ -524,6 +526,8 @@ class FileSystemBrowserViewModel(
               Log.e(TAG, "Error loading directory: $path", error)
             }
         }
+      } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
       } catch (e: Exception) {
         _error.value = e.message
         _unsortedItems.value = emptyList()

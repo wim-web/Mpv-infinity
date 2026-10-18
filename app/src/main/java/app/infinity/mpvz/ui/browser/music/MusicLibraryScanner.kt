@@ -38,6 +38,10 @@ object MusicLibraryScanner {
       MediaStore.Audio.Media.SIZE
     )
 
+    val folders = org.koin.core.context.GlobalContext.get().get<app.infinity.mpvz.preferences.FoldersPreferences>()
+    val selectedFolders = folders.selectedAudioFolders.get()
+    val scope = app.infinity.mpvz.utils.storage.SelectedMediaFolders.selection(selectedFolders)
+    if (selectedFolders.isEmpty()) return@withContext emptyList()
     val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 OR ${MediaStore.Audio.Media.DURATION} > 1000"
     val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
 
@@ -45,8 +49,8 @@ object MusicLibraryScanner {
       context.contentResolver.query(
         MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
         projection,
-        selection,
-        null,
+        "($selection) AND ${scope.sql}",
+        scope.args,
         sortOrder
       )?.use { cursor ->
         val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
@@ -64,6 +68,7 @@ object MusicLibraryScanner {
         while (cursor.moveToNext()) {
           val id = cursor.getLong(idCol)
           val path = cursor.getString(dataCol).orEmpty()
+          if (!app.infinity.mpvz.utils.storage.SelectedMediaFolders.contains(selectedFolders, path)) continue
           val size = cursor.getLong(sizeCol)
           val duration = cursor.getLong(durationCol)
           val file = path.takeIf { it.isNotBlank() }?.let(::File)

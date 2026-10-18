@@ -10,7 +10,6 @@
 package app.infinity.mpvz.utils.storage
 
 import android.content.Context
-import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import app.infinity.mpvz.database.dao.DirectoryScanDao
@@ -211,6 +210,7 @@ object FolderViewScanner {
           directory: File,
           isNoMediaRoot: Boolean,
         ) {
+          if (!options.allowsDirectory(directory)) return
           val path = normalizeStoragePath(directory.absolutePath) ?: return
           val key = scanEntryKey(path)
           if (key !in cached) {
@@ -272,6 +272,7 @@ object FolderViewScanner {
               continue
             }
 
+            if (!options.allowsDirectory(directory)) continue
             val files = runCatching { directory.listFiles()?.toList() }.getOrNull() ?: continue
             if (work.isNoMediaRoot && !isHiddenMediaRoot(directory, options, files)) {
               invalidRootKeys += workRootKey
@@ -363,7 +364,7 @@ object FolderViewScanner {
         var duration = 0L
         var modified = 0L
         for (file in files) {
-          if (!file.isFile || file.name.startsWith(".")) continue
+          if (!options.allowsFile(file) || !file.isFile || file.name.startsWith(".")) continue
           val isAudio = options.includeAudio && FileTypeUtils.isAudioFile(file)
           if (!isAudio && !FileTypeUtils.isVideoFile(file)) continue
           val mediaDuration = if (isAudio) FileTypeUtils.getDurationMs(file) else 0L
@@ -404,12 +405,7 @@ object FolderViewScanner {
       dao
         .getEntries(discoveryScanKey)
         .associateByTo(mutableMapOf()) { scanEntryKey(it.path) }
-    val primary = Environment.getExternalStorageDirectory()
-    val searchRoots = linkedSetOf(primary)
-    searchRoots += getPrimaryStorageSupplementalScanRoots(primary)
-    StorageVolumeUtils.getExternalStorageVolumes(context).mapNotNullTo(searchRoots) { volume ->
-      StorageVolumeUtils.getVolumePath(volume)?.let(::File)
-    }
+    val searchRoots = options.selectedRoots.map(::File)
 
     val queue = newDirectoryQueue()
     val queued = hashSetOf<String>()
@@ -433,6 +429,7 @@ object FolderViewScanner {
       directory: File,
       rootPath: String,
     ) {
+      if (!options.allowsDirectory(directory)) return
       val path = normalizeStoragePath(directory.absolutePath) ?: return
       val key = scanEntryKey(path)
       if (key !in cached) {
@@ -470,6 +467,7 @@ object FolderViewScanner {
           continue
         }
 
+        if (!options.allowsDirectory(directory)) continue
         val files = runCatching { directory.listFiles()?.toList() }.getOrNull() ?: continue
         val isHiddenRoot = isHiddenMediaRoot(directory, options, files)
         DirectoryScanEntity(
@@ -707,8 +705,8 @@ object FolderViewScanner {
         .query(
           MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
           projection,
-          null,
-          null,
+          noMediaPathFilter.options.selection(false).sql,
+          noMediaPathFilter.options.selection(false).args,
           null,
         )?.use { cursor ->
           val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
@@ -725,7 +723,7 @@ object FolderViewScanner {
 
             if (!file.exists()) continue
             if (!FileTypeUtils.isVideoFile(file)) continue
-            if (noMediaPathFilter.shouldExcludeDirectory(file.parentFile)) continue
+            if (noMediaPathFilter.shouldExcludeFile(file)) continue
 
             val folderPath = normalizeStoragePath(file.parent) ?: continue
             val folderKey = storagePathKey(folderPath) ?: continue
@@ -808,8 +806,8 @@ object FolderViewScanner {
         .query(
           MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
           projection,
-          null,
-          null,
+          noMediaPathFilter.options.selection(true).sql,
+          noMediaPathFilter.options.selection(true).args,
           null,
         )?.use { cursor ->
           val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
@@ -818,7 +816,7 @@ object FolderViewScanner {
           val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
           while (cursor.moveToNext()) {
             val file = File(cursor.getString(dataColumn))
-            if (!file.exists() || noMediaPathFilter.shouldExcludeDirectory(file.parentFile)) continue
+            if (!file.exists() || noMediaPathFilter.shouldExcludeFile(file)) continue
             if (!FileTypeUtils.isAudioFile(file)) continue
             val duration = cursor.getLong(durationColumn)
             if (!options.includesAudioDuration(duration)) continue
@@ -875,23 +873,7 @@ object FolderViewScanner {
     forceFileSystemCheck: Boolean,
   ) {
     try {
-      val rootsToScan = linkedSetOf<File>()
-      val primaryStorageRoot = Environment.getExternalStorageDirectory()
-
-      if (shouldIncludePrimaryStorageInFilesystemFolderScan(options, forceFileSystemCheck)) {
-        rootsToScan += primaryStorageRoot
-      }
-
-      rootsToScan += getPrimaryStorageSupplementalScanRoots(primaryStorageRoot)
-
-      for (volume in StorageVolumeUtils.getExternalStorageVolumes(context)) {
-        val volumePath = StorageVolumeUtils.getVolumePath(volume)
-        if (volumePath == null) {
-          continue
-        }
-
-        rootsToScan += File(volumePath)
-      }
+      val rootsToScan = options.selectedRoots.map(::File)
 
       for (root in rootsToScan) {
         if (!root.exists() || !root.canRead() || !root.isDirectory) {
@@ -922,6 +904,7 @@ object FolderViewScanner {
     options: MediaScanOptions,
     noMediaPathFilter: NoMediaPathFilter,
   ) {
+    if (!options.allowsDirectory(directory)) return
     if (currentDepth >= maxDepth) return
     if (!directory.exists() || !directory.canRead() || !directory.isDirectory) return
     if (FileFilterUtils.shouldSkipFolder(directory, options, noMediaPathFilter)) return

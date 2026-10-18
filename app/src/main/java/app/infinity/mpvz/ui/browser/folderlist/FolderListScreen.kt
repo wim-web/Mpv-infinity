@@ -301,6 +301,7 @@ object FolderListScreen : Screen {
 
     // Search logic
     LaunchedEffect(effectiveSearchQuery, effectiveIsSearching, audioOnly, videoFolders) {
+      searchResults = emptyList()
       if (effectiveIsSearching && effectiveSearchQuery.isNotBlank()) {
         delay(250)
         isSearchLoading = true

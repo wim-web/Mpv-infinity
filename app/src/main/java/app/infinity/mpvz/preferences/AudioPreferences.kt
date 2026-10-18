@@ -23,9 +23,10 @@ class AudioPreferences(
   val audioPitchCorrection = preferenceStore.getBoolean("audio_pitch_correction", true)
   val audioChannels = preferenceStore.getEnum("audio_channels", AudioChannels.AutoSafe)
   val volumeBoostCap = preferenceStore.getInt("audio_volume_boost_cap", 30)
-  val backgroundPlayback = preferenceStore.getBoolean("automatic_background_playback", false)
+  val backgroundPermissionExplained = preferenceStore.getBoolean("background_permission_explained", false)
+  val backgroundPlayback = preferenceStore.getBoolean("automatic_background_playback", true)
   /** Audio-player-only background playback; video retains [backgroundPlayback]. */
-  val audioBackgroundPlayback = preferenceStore.getBoolean("audio_player_background_playback", false)
+  val audioBackgroundPlayback = preferenceStore.getBoolean("audio_player_background_playback", true)
   val volumeNormalization = preferenceStore.getBoolean("audio_volume_normalization", false)
   val drcEnabled = preferenceStore.getBoolean("audio_drc_enabled", false)
   val showAudioVisualizer = preferenceStore.getBoolean("show_audio_visualizer", false)
@@ -59,7 +60,7 @@ class AudioPreferences(
   init {
     // Consolidate the old audio-only screen-lock switch into the single global setting.
     val legacyScreenLockPlayback = preferenceStore.getBoolean("play_audio_after_screen_lock", false)
-    if (legacyScreenLockPlayback.get()) backgroundPlayback.set(true)
+    if (legacyScreenLockPlayback.get() && !backgroundPlayback.isSet()) backgroundPlayback.set(true)
     if (legacyScreenLockPlayback.isSet()) legacyScreenLockPlayback.delete()
   }
 }

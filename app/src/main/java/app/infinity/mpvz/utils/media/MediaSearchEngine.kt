@@ -39,6 +39,7 @@ object MediaSearchEngine {
    * Builds the search index. Call this ONCE when entering the search screen.
    * Pre-lowercasing and tokenizing here prevents expensive string operations during typing.
    */
+  @Synchronized
   fun buildIndex(
     folders: List<VideoFolder>,
     videosByFolder: Map<String, List<Video>>,
@@ -78,6 +79,7 @@ object MediaSearchEngine {
    * Enforces left-to-right matching and filters out zero-score results before sorting
    * to ensure maximum performance on every keystroke.
    */
+  @Synchronized
   fun search(
     query: String,
     limit: Int = 50,

@@ -619,6 +619,18 @@ fun MusicLibraryContent(
           )
         }
 
+        Text(stringResource(R.string.library_playlist_help), modifier = Modifier.padding(horizontal = 12.dp))
+        Row {
+          TextButton(onClick = {
+            scope.launch {
+              musicViewModel.setTab(MusicTab.PLAYLISTS)
+              pagerState.animateScrollToPage(visibleTabs.indexOf(MusicTab.PLAYLISTS).coerceAtLeast(0))
+            }
+          }) { Text(stringResource(R.string.ui_playlists)) }
+          TextButton(onClick = { showCreatePlaylistDialog = true }) {
+            Text(stringResource(R.string.ui_create_playlist))
+          }
+        }
         PrimaryScrollableTabRow(
           selectedTabIndex = pagerState.currentPage.coerceIn(0, (visibleTabs.size - 1).coerceAtLeast(0)),
           containerColor = Color.Transparent,

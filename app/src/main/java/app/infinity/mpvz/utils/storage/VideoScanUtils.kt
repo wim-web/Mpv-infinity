@@ -57,14 +57,16 @@ object VideoScanUtils : KoinComponent {
       val noMediaPathFilter = NoMediaPathFilter(options)
       val folder = File(normalizedFolderPath)
 
-      if (noMediaPathFilter.shouldExcludeDirectory(folder)) {
+      if (!options.allowsDirectory(folder) || noMediaPathFilter.shouldExcludeDirectory(folder)) {
         return@withContext emptyList()
       }
 
       // Query only direct children so folders with large nested trees do not force a full
       // descendant result set that is discarded by the parent-path check below.
-      scanVideosFromMediaStore(context, normalizedFolderPath, videosMap, noMediaPathFilter)
-      if (options.includeAudio) {
+      if (SelectedMediaFolders.contains(options.videoFolders, folder.path)) {
+        scanVideosFromMediaStore(context, normalizedFolderPath, videosMap, noMediaPathFilter)
+      }
+      if (options.includeAudio && SelectedMediaFolders.contains(options.audioFolders, folder.path)) {
         scanAudioFromMediaStore(context, normalizedFolderPath, videosMap, noMediaPathFilter, options)
       }
 
@@ -129,18 +131,19 @@ object VideoScanUtils : KoinComponent {
 
     val normalizedFolderPath = normalizeStoragePath(folderPath) ?: return
     val normalizedFolderKey = storagePathKey(normalizedFolderPath) ?: return
+    val escapedFolderKey = normalizedFolderKey.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     val selection =
-      "LOWER(${MediaStore.Video.Media.DATA}) LIKE ? AND " +
-        "LOWER(${MediaStore.Video.Media.DATA}) NOT LIKE ?"
-    val selectionArgs = arrayOf("$normalizedFolderKey/%", "$normalizedFolderKey/%/%")
+      "LOWER(${MediaStore.Video.Media.DATA}) LIKE ? ESCAPE '\\' AND " +
+        "LOWER(${MediaStore.Video.Media.DATA}) NOT LIKE ? ESCAPE '\\'"
+    val selectionArgs = arrayOf("$escapedFolderKey/%", "$escapedFolderKey/%/%")
 
     try {
       context.contentResolver
         .query(
           MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
           projection,
-          selection,
-          selectionArgs,
+          "($selection) AND ${SelectedMediaFolders.selection(setOf(normalizedFolderPath)).sql}",
+          selectionArgs + SelectedMediaFolders.selection(setOf(normalizedFolderPath)).args,
           "${MediaStore.Video.Media.DISPLAY_NAME} ASC",
         )?.use { cursor ->
           val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
@@ -163,7 +166,7 @@ object VideoScanUtils : KoinComponent {
             if (!areEquivalentStoragePaths(file.parent, normalizedFolderPath)) continue
             if (!file.exists()) continue
             if (!FileTypeUtils.isVideoFile(file)) continue
-            if (noMediaPathFilter.shouldExcludeDirectory(file.parentFile)) continue
+            if (noMediaPathFilter.shouldExcludeFile(file)) continue
 
             val id = cursor.getLong(idColumn)
             val displayName = cursor.getString(nameColumn)
@@ -234,17 +237,18 @@ object VideoScanUtils : KoinComponent {
       )
     val normalizedFolderPath = normalizeStoragePath(folderPath) ?: return
     val normalizedFolderKey = storagePathKey(normalizedFolderPath) ?: return
+    val escapedFolderKey = normalizedFolderKey.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     val selection =
-      "LOWER(${MediaStore.Audio.Media.DATA}) LIKE ? AND " +
-        "LOWER(${MediaStore.Audio.Media.DATA}) NOT LIKE ?"
+      "LOWER(${MediaStore.Audio.Media.DATA}) LIKE ? ESCAPE '\\' AND " +
+        "LOWER(${MediaStore.Audio.Media.DATA}) NOT LIKE ? ESCAPE '\\'"
 
     try {
       context.contentResolver
         .query(
           MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
           projection,
-          selection,
-          arrayOf("$normalizedFolderKey/%", "$normalizedFolderKey/%/%"),
+          "($selection) AND ${SelectedMediaFolders.selection(setOf(normalizedFolderPath)).sql}",
+          arrayOf("$escapedFolderKey/%", "$escapedFolderKey/%/%") + SelectedMediaFolders.selection(setOf(normalizedFolderPath)).args,
           "${MediaStore.Audio.Media.DISPLAY_NAME} ASC",
         )?.use { cursor ->
           val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
@@ -261,7 +265,7 @@ object VideoScanUtils : KoinComponent {
             val path = cursor.getString(dataColumn)
             val file = File(path)
             if (!areEquivalentStoragePaths(file.parent, normalizedFolderPath)) continue
-            if (!file.exists() || noMediaPathFilter.shouldExcludeDirectory(file.parentFile)) continue
+            if (!file.exists() || noMediaPathFilter.shouldExcludeFile(file)) continue
             if (!FileTypeUtils.isAudioFile(file)) continue
             val duration = cursor.getLong(durationColumn)
             if (!options.includesAudioDuration(duration)) continue
@@ -637,6 +641,7 @@ object FileFilterUtils {
     options: MediaScanOptions = MediaScanOptions(),
     noMediaPathFilter: NoMediaPathFilter = NoMediaPathFilter(options),
   ): Boolean {
+    if (!options.allowsDirectory(folder)) return true
     if (isAndroidDataAccessiblePath(folder)) {
       // Allow navigation/scanning into Android/data so app-specific video folders
       // can appear in both the folder list and filesystem browser.
@@ -660,6 +665,7 @@ object FileFilterUtils {
     options: MediaScanOptions = MediaScanOptions(),
     noMediaPathFilter: NoMediaPathFilter = NoMediaPathFilter(options),
   ): Boolean {
+    if (!options.allowsFile(file)) return true
     if (file.name.startsWith(".")) {
       return true
     }

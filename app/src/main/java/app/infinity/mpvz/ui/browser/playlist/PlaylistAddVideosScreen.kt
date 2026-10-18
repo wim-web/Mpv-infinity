@@ -100,7 +100,7 @@ data class PlaylistAddVideosScreen(
 
     // Folder list step (mirrors FolderListScreen's browsing + sort)
     val folderListViewModel: FolderListViewModel =
-      viewModel(factory = FolderListViewModel.factory(application))
+      viewModel(key = "PlaylistAddFolders_$isAudio", factory = FolderListViewModel.factory(application, audioOnly = isAudio))
     val videoFolders by folderListViewModel.videoFolders.collectAsState()
     val folderSortType by browserPreferences.folderSortType.collectAsState()
     val folderSortOrder by browserPreferences.folderSortOrder.collectAsState()

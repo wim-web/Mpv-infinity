@@ -169,6 +169,22 @@ class FolderListViewModel(
       }
     }
 
+    viewModelScope.launch {
+      combine(
+        foldersPreferences.selectedVideoFolders.changes(),
+        foldersPreferences.selectedAudioFolders.changes(),
+      ) { video, audio -> video to audio }.drop(1).collectLatest {
+        currentScanJob?.cancel()
+        cacheWriteJob?.cancel()
+        newCountJob?.cancel()
+        _allVideoFolders.value = emptyList()
+        _videoFolders.value = emptyList()
+        _foldersWithNewCount.value = emptyList()
+        MediaFileRepository.clearCache()
+        loadVideoFolders()
+      }
+    }
+
     // Filter folders based on blacklist (video vs audio scope)
     val blacklistFlow = if (audioOnly) {
       foldersPreferences.blacklistedAudioFolders.changes()
@@ -179,7 +195,8 @@ class FolderListViewModel(
     viewModelScope.launch {
       FolderListBlacklistFilter
         .observe(_allVideoFolders, blacklistFlow, rootPath)
-        .collectLatest { filteredFolders ->
+        .collectLatest { candidates ->
+          val filteredFolders = candidates.filter { isSelectedFolder(it.path) }
           // Check if folders became empty after having folders
           if (previousFolderCount > 0 && filteredFolders.isEmpty()) {
             _foldersWereDeleted.value = true
@@ -197,7 +214,7 @@ class FolderListViewModel(
           calculateNewVideoCounts(filteredFolders)
 
           // Save to cache for next app launch (save unfiltered list)
-          saveFoldersToCache(_allVideoFolders.value)
+          saveFoldersToCache(_allVideoFolders.value.filter { isSelectedFolder(it.path) })
         }
     }
   }
@@ -206,7 +223,8 @@ class FolderListViewModel(
     var hasCachedData = false
     val prefs =
       getApplication<Application>().getSharedPreferences("folder_cache", android.content.Context.MODE_PRIVATE)
-    val cachedJson = prefs.getString(currentFolderCacheKey(), null)
+    val cacheKey = currentFolderCacheKey()
+    val cachedJson = prefs.getString(cacheKey, null)
 
     if (cachedJson != null) {
       try {
@@ -216,7 +234,8 @@ class FolderListViewModel(
           Log.d(TAG, "Loaded ${folders.size} folders from cache instantly")
           hasCachedData = true
           viewModelScope.launch(Dispatchers.IO) {
-            _allVideoFolders.value = folders
+            if (cacheKey != currentFolderCacheKey()) return@launch
+            _allVideoFolders.value = folders.filter { isSelectedFolder(it.path) }
             _hasCompletedInitialLoad.value = true
           }
         }
@@ -229,6 +248,7 @@ class FolderListViewModel(
   }
 
   private fun saveFoldersToCache(folders: List<VideoFolder>) {
+    val cacheKey = currentFolderCacheKey()
     cacheWriteJob?.cancel()
     cacheWriteJob =
       viewModelScope.launch(Dispatchers.IO) {
@@ -237,7 +257,7 @@ class FolderListViewModel(
           val prefs =
             getApplication<Application>().getSharedPreferences("folder_cache", android.content.Context.MODE_PRIVATE)
           val json = serializeFoldersToJson(folders)
-          prefs.edit().putString(currentFolderCacheKey(), json).apply()
+          prefs.edit().putString(cacheKey, json).apply()
           Log.d(TAG, "Saved ${folders.size} folders to cache")
         } catch (e: Exception) {
           Log.e(TAG, "Error saving folders to cache", e)
@@ -245,8 +265,14 @@ class FolderListViewModel(
       }
   }
 
+  private fun isSelectedFolder(path: String): Boolean {
+    val roots = if (audioOnly) foldersPreferences.selectedAudioFolders.get()
+      else MediaFileRepository.currentScanOptions().selectedRoots
+    return app.infinity.mpvz.utils.storage.SelectedMediaFolders.contains(roots, path)
+  }
+
   private fun currentFolderCacheKey(): String =
-    "folders_${if (audioOnly) "audioOnly" else "video"}" +
+    MediaFileRepository.currentScanOptions().cacheKey + "folders_${if (audioOnly) "audioOnly" else "video"}" +
       "_${if (foldersPreferences.includeNoMediaFolders.get()) "with_nomedia" else "exclude_nomedia"}" +
       "_audio_${browserPreferences.includeAudioBrowser.get()}_${browserPreferences.minimumAudioDurationSeconds.get()}"
 
@@ -424,10 +450,12 @@ class FolderListViewModel(
 
   private fun triggerMediaScan() {
     try {
-      val externalStorage = android.os.Environment.getExternalStorageDirectory()
+      val roots = if (audioOnly) foldersPreferences.selectedAudioFolders.get()
+        else MediaFileRepository.currentScanOptions().selectedRoots
+      if (roots.isEmpty()) return
       android.media.MediaScannerConnection.scanFile(
         getApplication(),
-        arrayOf(externalStorage.absolutePath),
+        roots.toTypedArray(),
         null,
       ) { path, uri ->
         Log.d(TAG, "Media scan completed for: $path -> $uri")

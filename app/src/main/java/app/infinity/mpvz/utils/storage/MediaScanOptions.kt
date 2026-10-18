@@ -14,11 +14,32 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 data class MediaScanOptions(
+  val videoFolders: Set<String> = emptySet(),
+  val audioFolders: Set<String> = emptySet(),
   val includeNoMediaFolders: Boolean = false,
   val hiddenFolderMarkerNames: Set<String> = setOf(".nomedia"),
   val includeAudio: Boolean = false,
   val minimumAudioDurationSeconds: Int = 0,
 ) {
+  val selectedRoots: Set<String>
+    get() = videoFolders + if (includeAudio) audioFolders else emptySet()
+
+  fun allowsDirectory(file: File): Boolean = SelectedMediaFolders.contains(selectedRoots, file.path)
+
+  fun allowsFile(file: File): Boolean =
+    if (FileTypeUtils.isAudioFile(file)) {
+      includeAudio && SelectedMediaFolders.contains(audioFolders, file.path)
+    } else {
+      SelectedMediaFolders.contains(videoFolders, file.path)
+    }
+
+  fun selection(audio: Boolean = false): FolderSelection =
+    SelectedMediaFolders.selection(if (audio) audioFolders else videoFolders)
+
+  private val foldersKey: String
+    get() = "video=" + videoFolders.sorted().joinToString { "${it.length}:$it" } +
+      "|audio=" + audioFolders.sorted().joinToString { "${it.length}:$it" }
+
   val normalizedHiddenFolderMarkerNames: Set<String> =
     hiddenFolderMarkerNames.mapNotNull(::normalizeHiddenMarkerName).toSet()
 
@@ -28,14 +49,14 @@ data class MediaScanOptions(
   val cacheKey: String
     get() {
       val markers = normalizedHiddenFolderMarkerNames.sorted().joinToString("") { "${it.length}:$it" }
-      return "hiddenScanV3=$includeNoMediaFolders|markers=$markers|" +
+      return "$foldersKey|hiddenScanV4=$includeNoMediaFolders|markers=$markers|" +
         "includeAudio=$includeAudio|minAudio=$minimumAudioDurationSeconds"
     }
 
   val rootDiscoveryCacheKey: String
     get() {
       val markers = normalizedHiddenFolderMarkerNames.sorted().joinToString("") { "${it.length}:$it" }
-      return "hiddenRootDiscoveryV1|markers=$markers"
+      return "$foldersKey|hiddenRootDiscoveryV2|includeAudio=$includeAudio|markers=$markers"
     }
 
   fun includesAudioDuration(durationMs: Long): Boolean =
@@ -43,7 +64,7 @@ data class MediaScanOptions(
 }
 
 class NoMediaPathFilter(
-  private val options: MediaScanOptions,
+  val options: MediaScanOptions,
 ) {
   private val exclusionCache = ConcurrentHashMap<String, Boolean>()
 
@@ -61,7 +82,8 @@ class NoMediaPathFilter(
     return hasHiddenMarkerInPath(directory)
   }
 
-  fun shouldExcludeFile(file: File): Boolean = shouldExcludeDirectory(file.parentFile)
+  fun shouldExcludeFile(file: File): Boolean =
+    !options.allowsFile(file) || shouldExcludeDirectory(file.parentFile)
 
   private fun hasHiddenMarkerInPath(directory: File): Boolean {
     val path = runCatching { directory.absolutePath }.getOrElse { return false }

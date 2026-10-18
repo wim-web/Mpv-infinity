@@ -253,7 +253,7 @@ object PlaylistScreen : Screen {
       },
       floatingActionButton = {
         val navigationBarHeight = app.infinity.mpvz.ui.browser.LocalNavigationBarHeight.current
-        if (!selectionManager.isInSelectionMode && isFabVisible.value) {
+        if (!selectionManager.isInSelectionMode) {
           ExtendedFloatingActionButton(
             onClick = { showPlaylistActionSheet = true },
             icon = { Icon(Icons.RoundedFilled.Add, contentDescription = null) },

@@ -159,6 +159,9 @@ object FoldersPreferencesScreen : Screen {
             .then(settingsHighlight),
       ) {
         if (!selectionState.isInSelectionMode) {
+          TextButton(onClick = { backstack.add(LibraryFoldersScreen) }) {
+            Text(stringResource(R.string.library_folders))
+          }
           // ── Media Library ─────────────────────────────────────────────
           PreferenceSectionHeader(
             title = stringResource(R.string.pref_media_library_section),

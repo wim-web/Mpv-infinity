@@ -197,12 +197,16 @@ class VideoListViewModel(
 
   private val tag = "VideoListViewModel"
 
+  private var libraryLoadJob: kotlinx.coroutines.Job? = null
+
   init {
     loadVideos()
 
     // Listen for global media library changes and refresh this list when they occur
     viewModelScope.launch(Dispatchers.IO) {
       MediaLibraryEvents.changes.collectLatest {
+        _videos.value = emptyList()
+        _videosWithPlaybackInfo.value = emptyList()
         loadVideos()
       }
     }
@@ -236,7 +240,8 @@ class VideoListViewModel(
   }
 
   private fun loadVideos(forceFileSystemCheck: Boolean = false) {
-    viewModelScope.launch(Dispatchers.IO) {
+    libraryLoadJob?.cancel()
+    libraryLoadJob = viewModelScope.launch(Dispatchers.IO) {
       try {
         // First attempt to load videos (basic info from MediaStore)
         var videoList =
@@ -316,6 +321,8 @@ class VideoListViewModel(
           _videos.value = videoList
           loadPlaybackInfo(videoList)
         }
+      } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
       } catch (e: Exception) {
         Log.e(tag, "Error loading videos for bucket $bucketId", e)
         _videos.value = emptyList()
@@ -483,6 +490,7 @@ class VideoListViewModel(
     try {
       // Trigger a targeted media scan for the specific folder
       val folder = File(bucketId)
+      if (!MediaFileRepository.currentScanOptions(includeAudioOverride = true).allowsDirectory(folder)) return
 
       if (folder.exists() && folder.isDirectory) {
         // Scan all video files in the folder
@@ -522,17 +530,6 @@ class VideoListViewModel(
         } else {
           Log.d(tag, "No video files found in folder: $bucketId")
         }
-      } else {
-        // Fallback to scanning external storage root
-        val externalStorage = android.os.Environment.getExternalStorageDirectory()
-        android.media.MediaScannerConnection.scanFile(
-          getApplication(),
-          arrayOf(externalStorage.absolutePath),
-          arrayOf("video/*"),
-        ) { path, uri ->
-          Log.d(tag, "Media scan completed for: $path -> $uri")
-        }
-        Log.d(tag, "Triggered media scan for: ${externalStorage.absolutePath}")
       }
     } catch (e: Exception) {
       Log.e(tag, "Failed to trigger media scan", e)

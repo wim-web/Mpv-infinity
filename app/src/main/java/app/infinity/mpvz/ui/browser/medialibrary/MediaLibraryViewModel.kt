@@ -57,8 +57,17 @@ class MediaLibraryViewModel(
 
   private val tag = "MediaLibraryViewModel"
 
+  private var libraryLoadJob: kotlinx.coroutines.Job? = null
+
   init {
     loadData()
+    viewModelScope.launch {
+      app.infinity.mpvz.utils.media.MediaLibraryEvents.changes.collectLatest {
+        _videos.value = emptyList()
+        _videosWithPlaybackInfo.value = emptyList()
+        loadData()
+      }
+    }
     viewModelScope.launch(Dispatchers.IO) {
       PlaybackStateEvents.changes.collectLatest { mediaIdentifier ->
         if (_videos.value.isNotEmpty()) updatePlaybackInfo(mediaIdentifier)
@@ -67,7 +76,8 @@ class MediaLibraryViewModel(
   }
 
   private fun loadData() {
-    viewModelScope.launch(Dispatchers.IO) {
+    libraryLoadJob?.cancel()
+    libraryLoadJob = viewModelScope.launch(Dispatchers.IO) {
       try {
         _isLoading.value = true
         var videoList =
@@ -88,6 +98,8 @@ class MediaLibraryViewModel(
 
         _videos.value = videoList
         loadPlaybackInfo(videoList)
+      } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
       } catch (e: Exception) {
         Log.e(tag, "Error loading media library videos", e)
       } finally {

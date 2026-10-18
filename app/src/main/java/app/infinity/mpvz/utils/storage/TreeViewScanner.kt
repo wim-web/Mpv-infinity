@@ -27,15 +27,18 @@ import java.util.Locale
 object TreeViewScanner {
   private const val TAG = "TreeViewScanner"
 
-  private var cachedTreeViewData: Map<String, FolderNode>? = null
-  private var cacheTimestamp: Long = 0
-  private var cacheOptionsKey: String? = null
+  private data class TreeCache(
+    val folders: Map<String, FolderNode>,
+    val createdAt: Long,
+    val optionsKey: String,
+  )
+
+  @Volatile
+  private var treeCache: TreeCache? = null
   private const val CACHE_TTL_MS = 10_000L
 
   fun clearCache() {
-    cachedTreeViewData = null
-    cacheTimestamp = 0
-    cacheOptionsKey = null
+    treeCache = null
   }
 
   data class FolderData(
@@ -169,9 +172,9 @@ object TreeViewScanner {
           playedMediaTitles = playedMediaTitles,
         )
 
-      cachedTreeViewData?.let { cached ->
-        if (!forceFileSystemCheck && now - cacheTimestamp < CACHE_TTL_MS && cacheOptionsKey == cacheKey) {
-          return@withContext cached
+      treeCache?.let { cached ->
+        if (!forceFileSystemCheck && now - cached.createdAt < CACHE_TTL_MS && cached.optionsKey == cacheKey) {
+          return@withContext cached.folders
         }
       }
 
@@ -185,9 +188,7 @@ object TreeViewScanner {
           thresholdDays = thresholdDays,
         )
 
-      cachedTreeViewData = data
-      cacheTimestamp = now
-      cacheOptionsKey = cacheKey
+      treeCache = TreeCache(data, now, cacheKey)
       data
     }
 
@@ -275,8 +276,8 @@ object TreeViewScanner {
         .query(
           MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
           projection,
-          null,
-          null,
+          noMediaPathFilter.options.selection(false).sql,
+          noMediaPathFilter.options.selection(false).args,
           null,
         )?.use { cursor ->
           val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
@@ -293,7 +294,7 @@ object TreeViewScanner {
 
             if (!file.exists()) continue
             if (!FileTypeUtils.isVideoFile(file)) continue
-            if (noMediaPathFilter.shouldExcludeDirectory(file.parentFile)) continue
+            if (noMediaPathFilter.shouldExcludeFile(file)) continue
 
             val folderPath = normalizeStoragePath(file.parent) ?: continue
             val folderKey = storagePathKey(folderPath) ?: continue
@@ -376,8 +377,8 @@ object TreeViewScanner {
         .query(
           MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
           projection,
-          null,
-          null,
+          noMediaPathFilter.options.selection(true).sql,
+          noMediaPathFilter.options.selection(true).args,
           null,
         )?.use { cursor ->
           val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
@@ -389,7 +390,7 @@ object TreeViewScanner {
 
           while (cursor.moveToNext()) {
             val file = File(cursor.getString(dataColumn))
-            if (!file.exists() || noMediaPathFilter.shouldExcludeDirectory(file.parentFile)) continue
+            if (!file.exists() || noMediaPathFilter.shouldExcludeFile(file)) continue
             if (!FileTypeUtils.isAudioFile(file)) continue
             val duration = cursor.getLong(durationColumn)
             if (!options.includesAudioDuration(duration)) continue
@@ -454,19 +455,7 @@ object TreeViewScanner {
     currentTimeMs: Long,
   ) {
     try {
-      val rootsToScan = linkedSetOf<File>()
-      val primaryStorageRoot = Environment.getExternalStorageDirectory()
-
-      if (shouldIncludePrimaryStorageInFilesystemFolderScan(options, forceFileSystemCheck)) {
-        rootsToScan += primaryStorageRoot
-      }
-
-      rootsToScan += getPrimaryStorageSupplementalScanRoots(primaryStorageRoot)
-
-      for (volume in StorageVolumeUtils.getExternalStorageVolumes(context)) {
-        val volumePath = StorageVolumeUtils.getVolumePath(volume) ?: continue
-        rootsToScan += File(volumePath)
-      }
+      val rootsToScan = options.selectedRoots.map(::File)
 
       for (root in rootsToScan) {
         if (!root.exists() || !root.canRead() || !root.isDirectory) {
@@ -498,6 +487,7 @@ object TreeViewScanner {
     currentTimeMs: Long,
     currentDepth: Int = 0,
   ) {
+    if (!options.allowsDirectory(directory)) return
     if (currentDepth >= maxDepth) return
     if (!directory.exists() || !directory.canRead() || !directory.isDirectory) return
     if (FileFilterUtils.shouldSkipFolder(directory, options, noMediaPathFilter)) return

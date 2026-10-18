@@ -50,7 +50,7 @@ class MusicLibraryViewModel : ViewModel(), KoinComponent {
   ) { orderList, enabledSet ->
     val tabMap = MusicTab.entries.associateBy { it.name }
     val orderedTabs = (orderList.mapNotNull { tabMap[it] } + (MusicTab.entries - orderList.mapNotNull { tabMap[it] }.toSet())).distinct()
-    val filtered = orderedTabs.filter { it.name in enabledSet }
+    val filtered = orderedTabs.filter { it.name in enabledSet || it == MusicTab.PLAYLISTS }
     if (filtered.isEmpty()) listOf(MusicTab.SONGS) else filtered
   }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MusicTab.entries.toList())
 
@@ -117,6 +117,14 @@ class MusicLibraryViewModel : ViewModel(), KoinComponent {
     }
     viewModelScope.launch {
       MediaLibraryEvents.changes.collectLatest {
+        scanLibrary(context)
+      }
+    }
+    viewModelScope.launch {
+      foldersPreferences.selectedAudioFolders.changes().collectLatest {
+        refreshJob?.cancel()
+        _allSongs.value = emptyList()
+        applyFilters(browserPreferences.minimumAudioDurationSeconds.get(), foldersPreferences.blacklistedAudioFolders.get())
         scanLibrary(context)
       }
     }
@@ -208,7 +216,8 @@ class MusicLibraryViewModel : ViewModel(), KoinComponent {
     val visibleSongs = _allSongs.value.filter { song ->
       val meetsDuration = (minimumMs == 0L || song.durationMs >= minimumMs)
       val isNotBlacklisted = !FolderBlacklistMatcher.isMediaFileBlacklisted(song.path, blacklist)
-      meetsDuration && isNotBlacklisted
+      meetsDuration && isNotBlacklisted &&
+        app.infinity.mpvz.utils.storage.SelectedMediaFolders.contains(foldersPreferences.selectedAudioFolders.get(), song.path)
     }
 
     _songs.value = visibleSongs

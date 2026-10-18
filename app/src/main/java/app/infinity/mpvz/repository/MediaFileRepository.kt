@@ -28,7 +28,6 @@ import app.infinity.mpvz.utils.media.VideoResolutionFormatter
 import app.infinity.mpvz.utils.storage.FileTypeUtils
 import app.infinity.mpvz.utils.storage.FolderViewScanner
 import app.infinity.mpvz.utils.storage.MediaScanOptions
-import app.infinity.mpvz.utils.storage.StorageVolumeUtils
 import app.infinity.mpvz.utils.storage.TreeViewScanner
 import app.infinity.mpvz.utils.storage.VideoScanUtils
 import app.infinity.mpvz.utils.storage.mediaPathKey
@@ -62,8 +61,10 @@ object MediaFileRepository : KoinComponent {
   private val playbackStateRepository: PlaybackStateRepository by inject()
   private val database: MpvInfinityDatabase by inject()
 
-  private fun currentScanOptions(includeAudioOverride: Boolean? = null): MediaScanOptions =
+  fun currentScanOptions(includeAudioOverride: Boolean? = null): MediaScanOptions =
     MediaScanOptions(
+      videoFolders = foldersPreferences.selectedVideoFolders.get(),
+      audioFolders = foldersPreferences.selectedAudioFolders.get(),
       includeNoMediaFolders = foldersPreferences.includeNoMediaFolders.get(),
       hiddenFolderMarkerNames = foldersPreferences.hiddenFolderMarkerNames.get(),
       includeAudio = includeAudioOverride ?: browserPreferences.includeAudioBrowser.get(),
@@ -96,6 +97,7 @@ object MediaFileRepository : KoinComponent {
     Log.d(TAG, "Clearing all caches (FolderViewScanner + TreeViewScanner)")
     FolderViewScanner.clearCache()
     TreeViewScanner.clearCache()
+    app.infinity.mpvz.utils.media.MediaSearchEngine.buildIndex(emptyList(), emptyMap())
   }
 
   /** Invalidates only the album MediaStore snapshot, preserving tree and filesystem indexes. */
@@ -169,6 +171,8 @@ object MediaFileRepository : KoinComponent {
     minimumAudioDurationSeconds: Int = 0,
   ): List<VideoFolder> =
     withContext(Dispatchers.IO) {
+      val audioOptions = currentScanOptions(includeAudioOverride = true)
+      val audioScope = audioOptions.selection(true)
       val aggregates = linkedMapOf<String, AudioFolderAggregate>()
       try {
         val projection =
@@ -182,8 +186,8 @@ object MediaFileRepository : KoinComponent {
           .query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             projection,
-            null,
-            null,
+            audioScope.sql,
+            audioScope.args,
             null,
           )?.use { cursor ->
             val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
@@ -193,7 +197,7 @@ object MediaFileRepository : KoinComponent {
             while (cursor.moveToNext()) {
               val path = cursor.getString(dataColumn)
               val file = File(path)
-              if (!file.exists()) continue
+              if (!app.infinity.mpvz.utils.storage.SelectedMediaFolders.contains(audioOptions.audioFolders, path) || !file.exists()) continue
               val durationMs = cursor.getLong(durationColumn)
               if (minimumAudioDurationSeconds > 0 && durationMs / 1000 < minimumAudioDurationSeconds) continue
               val parentPath = file.parent ?: continue
@@ -231,6 +235,8 @@ object MediaFileRepository : KoinComponent {
     limit: Int = 50,
   ): List<Video> =
     withContext(Dispatchers.IO) {
+      val audioOptions = currentScanOptions(includeAudioOverride = true)
+      val audioScope = audioOptions.selection(true)
       val results = mutableListOf<Video>()
       try {
         val like = "%${query.trim()}%"
@@ -254,8 +260,8 @@ object MediaFileRepository : KoinComponent {
           .query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             projection,
-            selection,
-            arrayOf(like, like, like, like),
+            "($selection) AND ${audioScope.sql}",
+            arrayOf(like, like, like, like) + audioScope.args,
             "${MediaStore.Audio.Media.TITLE} ASC",
           )?.use { cursor ->
             val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
@@ -269,7 +275,7 @@ object MediaFileRepository : KoinComponent {
               guard++
               val path = cursor.getString(dataColumn)
               val file = File(path)
-              if (!file.exists()) continue
+              if (!app.infinity.mpvz.utils.storage.SelectedMediaFolders.contains(audioOptions.audioFolders, path) || !file.exists()) continue
               val durationMs = cursor.getLong(durationColumn)
               val title = cursor.getString(titleColumn) ?: file.nameWithoutExtension
               val displayName = cursor.getString(displayColumn) ?: file.name
@@ -630,7 +636,8 @@ object MediaFileRepository : KoinComponent {
         // recursive tree just to discover an empty folder list. This keeps video-only folders
         // responsive even when the storage volume contains a large media tree.
         val scanOptions = currentScanOptions()
-        val hasDirectSubdirectories = directory.listFiles()?.any { it.isDirectory } == true
+        val hasDirectSubdirectories = !scanOptions.allowsDirectory(directory) ||
+          directory.listFiles()?.any { it.isDirectory } == true
         val folders =
           if (!hasDirectSubdirectories) {
             emptyList()
@@ -693,88 +700,28 @@ object MediaFileRepository : KoinComponent {
     forceFileSystemCheck: Boolean = false,
   ): List<FileSystemItem.Folder> =
     withContext(Dispatchers.IO) {
-      val roots = mutableListOf<FileSystemItem.Folder>()
-
-      try {
-        val (showNewLabels, thresholdDays, playedMediaTitles) = getTreeViewNewBadgeParams()
-
-        // Primary storage (internal)
-        val primaryStorage = Environment.getExternalStorageDirectory()
-        if (primaryStorage.exists() && primaryStorage.canRead()) {
-          val primaryPath = primaryStorage.absolutePath
-
-          // Get recursive count for this storage root
-          val folderData =
-            TreeViewScanner.getFolderDataRecursive(
-              context,
-              primaryPath,
-              currentScanOptions(),
-              forceFileSystemCheck,
-              playedMediaTitles,
-              showNewLabels,
-              thresholdDays,
-            )
-
-          roots.add(
-            FileSystemItem.Folder(
-              name = "Internal Storage",
-              path = primaryPath,
-              lastModified = primaryStorage.lastModified(),
-              videoCount = folderData?.videoCount ?: 0,
-              totalSize = folderData?.totalSize ?: 0L,
-              totalDuration = folderData?.totalDuration ?: 0L,
-              hasSubfolders = true,
-              newCount = folderData?.newCount ?: 0,
-            ),
-          )
-        }
-
-        // External volumes (SD cards, USB OTG)
-        val externalVolumes = StorageVolumeUtils.getExternalStorageVolumes(context)
-        for (volume in externalVolumes) {
-          val volumePath = StorageVolumeUtils.getVolumePath(volume)
-          if (volumePath != null) {
-            val volumeDir = File(volumePath)
-            if (volumeDir.exists() && volumeDir.canRead()) {
-              val volumeName = volume.getDescription(context)
-
-              // Get recursive count for this storage root
-              val folderData =
-                TreeViewScanner.getFolderDataRecursive(
-                  context,
-                  volumePath,
-                  currentScanOptions(),
-                  forceFileSystemCheck,
-                  playedMediaTitles,
-                  showNewLabels,
-                  thresholdDays,
-                )
-
-              roots.add(
-                FileSystemItem.Folder(
-                  name = volumeName,
-                  path = volumeDir.absolutePath,
-                  lastModified = volumeDir.lastModified(),
-                  videoCount = folderData?.videoCount ?: 0,
-                  totalSize = folderData?.totalSize ?: 0L,
-                  totalDuration = folderData?.totalDuration ?: 0L,
-                  hasSubfolders = true,
-                  newCount = folderData?.newCount ?: 0,
-                ),
-              )
-            }
-          }
-        }
-      } catch (e: Exception) {
-        Log.e(TAG, "Error getting storage roots", e)
+      val options = currentScanOptions()
+      if (options.selectedRoots.isEmpty()) return@withContext emptyList()
+      val (showNewLabels, thresholdDays, playedMediaTitles) = getTreeViewNewBadgeParams()
+      options.selectedRoots.sorted().mapNotNull { path ->
+        val directory = File(path)
+        if (!directory.isDirectory || !directory.canRead()) return@mapNotNull null
+        val data = TreeViewScanner.getFolderDataRecursive(
+          context, path, options, forceFileSystemCheck, playedMediaTitles, showNewLabels, thresholdDays,
+        )
+        FileSystemItem.Folder(
+          name = directory.name.ifEmpty { path },
+          path = path,
+          lastModified = directory.lastModified(),
+          videoCount = data?.videoCount ?: 0,
+          totalSize = data?.totalSize ?: 0L,
+          totalDuration = data?.totalDuration ?: 0L,
+          hasSubfolders = true,
+          newCount = data?.newCount ?: 0,
+        )
       }
-
-      roots
     }
 
-  // =============================================================================
-  // FORMATTING UTILITIES
-  // =============================================================================
 
   private fun formatDuration(durationMs: Long): String {
     if (durationMs <= 0) return "0s"
