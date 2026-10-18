@@ -20,7 +20,7 @@ description: wim-web/Mpv-infinity のAPKビルド、push、GitHubリリース公
 - ホストにJavaやAndroid SDKがなくても、まずDockerを確認する。KotlinのビルドにはJDKが必要だが、ホストへの導入を前提に止まらない。
 - 指定がなければ、動作確認用の `standard`・`arm64-v8a`・debug APK を作る。release署名や全ABIビルドは別途指示に従う。
 - [Docker手順](references/docker.md)に、実際に成功した環境・コマンド・対処方法を記載している。SDKやツールのバージョンはその時点のリポジトリ設定に合わせる。
-- 構文確認だけをビルド成功と呼ばない。GradleのAPK生成成功、単体テスト結果、生成APKの存在と署名を確認する。
+- 構文確認だけをビルド成功と呼ばない。GradleのAPK生成成功、単体テスト結果、生成APKの存在・署名と、`android:testOnly` がtrueでないことを確認する。
 - 既存APKのアップロード依頼なら、そのAPKを確認して使う。古い成果物を最新ソースのビルドと取り違えない。
 
 ## push・公開
