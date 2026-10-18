@@ -24,7 +24,6 @@ Android SDK の場所は `local.properties` の `sdk.dir` または `ANDROID_HOM
 APK の出力先は `app/build/outputs/apk/standard/debug/` です。全対応 ABI をビルドする場合は `-PtargetAbi` を省略します。Windows では `gradlew.bat` を使用します。
 
 `standard` のほかに `fongmi` と `noVulkan` のビルド設定も残しています。
-GitHub Actions を利用する場合は、**Build debug APK** を手動実行して APK を取得できます。
 
 ## 資料と構成
 
@@ -33,8 +32,6 @@ GitHub Actions を利用する場合は、**Build debug APK** を手動実行し
 - [カスタムコマンド](MPV_INFINITY_CUSTOM_COMMANDS.md)
 - [カタログ・ストリーミング設計](docs/catalog-streaming.md)
 - [ライセンス](LICENSE) / [第三者ライセンス](THIRD_PARTY_LICENSES/)
-
-公開配布用のメタデータ・宣伝画像、寄付・Issue 受付設定、リリース・プレビュー公開と用途限定のビルドワークフロー、上流の変更履歴・コントリビューションガイドを整理しています。アプリ本体、テスト、翻訳、同梱ライブラリは維持しています。
 
 ## Acknowledgments
 
