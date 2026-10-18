@@ -266,6 +266,20 @@ object PermissionUtils {
       videos: List<Video>,
     ): Pair<Int, Int> =
       withContext(Dispatchers.IO) {
+        val (documents, other) = videos.partition { android.provider.DocumentsContract.isDocumentUri(context, it.uri) }
+        if (documents.isNotEmpty()) {
+          var deleted = 0
+          for (video in documents) {
+            if (runCatching { android.provider.DocumentsContract.deleteDocument(context.contentResolver, video.uri) }.getOrDefault(false)) {
+              deleted++
+              RecentlyPlayedOps.onVideoDeleted(video.path)
+              PlaybackStateOps.onVideoDeleted(video.path)
+            }
+          }
+          if (deleted > 0) MediaLibraryEvents.notifyChanged()
+          val remaining = if (other.isEmpty()) 0 to 0 else deleteVideos(context, other)
+          return@withContext (deleted + remaining.first) to (documents.size - deleted + remaining.second)
+        }
         if (!BuildConfig.SCOPED_STORAGE_ONLY || hasManageStoragePermission()) {
           deleteVideosDirectly(context, videos)
         } else {
@@ -399,6 +413,15 @@ object PermissionUtils {
       withContext(Dispatchers.IO) {
         if (!isValidFileName(newDisplayName)) {
           return@withContext Result.failure(IllegalArgumentException("Invalid file name"))
+        }
+        if (android.provider.DocumentsContract.isDocumentUri(context, video.uri)) {
+          return@withContext runCatching {
+            val renamed = android.provider.DocumentsContract.renameDocument(context.contentResolver, video.uri, newDisplayName)
+              ?: error("Rename failed")
+            RecentlyPlayedOps.onVideoRenamed(context, video.path, renamed.toString())
+            PlaybackStateOps.onVideoRenamed(video.path, renamed.toString())
+            MediaLibraryEvents.notifyChanged()
+          }
         }
         if (!BuildConfig.SCOPED_STORAGE_ONLY || hasManageStoragePermission()) {
           renameVideoDirectly(context, video, newDisplayName)

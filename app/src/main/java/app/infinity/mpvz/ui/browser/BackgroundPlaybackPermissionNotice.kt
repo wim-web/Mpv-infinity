@@ -40,27 +40,7 @@ import app.infinity.mpvz.ui.utils.LocalBackStack
 import org.koin.compose.koinInject
 
 @Composable
-internal fun LibraryAccessBar(showVideoPlaylists: Boolean) {
-  val backStack = LocalBackStack.current
-  val folders = koinInject<FoldersPreferences>()
-  val videos by folders.selectedVideoFolders.collectAsState()
-  val audio by folders.selectedAudioFolders.collectAsState()
-  Column(modifier = Modifier.statusBarsPadding()) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-      TextButton(onClick = { backStack.add(LibraryFoldersScreen) }) { Text(stringResource(R.string.library_folders)) }
-      if (showVideoPlaylists) {
-        TextButton(onClick = { backStack.add(PlaylistScreen) }) { Text(stringResource(R.string.ui_playlists)) }
-      }
-    }
-    if ((if (showVideoPlaylists) videos else audio).isEmpty()) {
-      Text(stringResource(R.string.library_select_prompt), modifier = Modifier.padding(horizontal = 12.dp))
-    }
-    BackgroundPlaybackPermissionNotice()
-  }
-}
-
-@Composable
-private fun BackgroundPlaybackPermissionNotice() {
+internal fun BackgroundPlaybackPermissionNotice() {
   val context = LocalContext.current
   val lifecycleOwner = LocalLifecycleOwner.current
   val preferences = koinInject<AudioPreferences>()
@@ -87,9 +67,6 @@ private fun BackgroundPlaybackPermissionNotice() {
     context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
       putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
     })
-  }
-  TextButton(onClick = { openSettings() }) {
-    Text(stringResource(R.string.library_notification_blocked))
   }
   if (showExplanation) {
     AlertDialog(

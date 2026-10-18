@@ -274,6 +274,12 @@ object PreferencesScreen : Screen {
         items =
           listOfNotNull(
             SettingsDestination(
+              title = stringResource(R.string.library_folders),
+              summary = stringResource(R.string.library_media_types),
+              icon = Icons.RoundedFilled.FolderOpen,
+              screen = LibraryFoldersScreen,
+            ),
+            SettingsDestination(
               title = stringResource(R.string.pref_folders_title),
               summary = stringResource(R.string.pref_folders_summary),
               icon = Icons.RoundedFilled.Folder,

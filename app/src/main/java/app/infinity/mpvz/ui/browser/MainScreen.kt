@@ -30,8 +30,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -401,20 +399,16 @@ object MainScreen : Screen {
           ),
       )
 
-    val showLibraryAccess = selectedTab == MainTab.HOME ||
-      (selectedTab == MainTab.MUSIC && musicSourceProvider == MusicSourceProvider.LOCAL)
+    val libraryFolders = koinInject<app.infinity.mpvz.preferences.FoldersPreferences>()
+    val videoTrees by libraryFolders.selectedVideoTrees.collectAsState()
+    val audioTrees by libraryFolders.selectedAudioTrees.collectAsState()
+    if (videoTrees.isNotEmpty() || audioTrees.isNotEmpty()) BackgroundPlaybackPermissionNotice()
 
     // Scaffold with bottom navigation bar
     Scaffold(
-      topBar = {
-        if (showLibraryAccess) {
-          LibraryAccessBar(showVideoPlaylists = selectedTab == MainTab.HOME)
-        }
-      },
       modifier = Modifier.fillMaxSize(),
     ) { paddingValues ->
-      val libraryPadding = PaddingValues(top = if (showLibraryAccess) paddingValues.calculateTopPadding() else 0.dp)
-      Box(modifier = Modifier.fillMaxSize().padding(libraryPadding).consumeWindowInsets(libraryPadding)) {
+      Box(modifier = Modifier.fillMaxSize()) {
         if (visibleTabs.isEmpty()) {
           CompositionLocalProvider(
             LocalNavigationBarHeight provides contentBottomPadding,

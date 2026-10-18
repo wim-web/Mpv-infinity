@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
@@ -77,6 +78,12 @@ class PlaylistDetailViewModel(
   }
 
   init {
+    viewModelScope.launch {
+      app.infinity.mpvz.utils.media.MediaLibraryEvents.changes.collectLatest {
+        _videoItems.value = emptyList()
+        refreshNow()
+      }
+    }
     // Observe playlist info
     viewModelScope.launch(Dispatchers.IO) {
       playlistRepository.observePlaylistById(playlistId).collectLatest { playlist ->
@@ -92,7 +99,9 @@ class PlaylistDetailViewModel(
 
     // Observe playlist items and load video metadata
     viewModelScope.launch(Dispatchers.IO) {
-      playlistRepository.observePlaylistItems(playlistId).collectLatest { items ->
+      combine(playlistRepository.observePlaylistById(playlistId), playlistRepository.observePlaylistItems(playlistId)) { playlist, items -> playlist to items }
+        .collectLatest { (currentPlaylist, items) ->
+        _playlist.value = currentPlaylist
         _isLoading.value = true
         try {
           if (items.isEmpty()) {
@@ -108,72 +117,7 @@ class PlaylistDetailViewModel(
               Log.d(TAG, "Loaded ${videoItems.size} M3U playlist items")
               _videoItems.value = videoItems
             } else {
-              // For regular playlists, use the existing logic with MediaFileRepository
-              val fileObjects = items.map { item ->
-                when {
-                  item.filePath.startsWith("content://") || item.filePath.startsWith("file://") -> {
-                    val uri = Uri.parse(item.filePath)
-                    val resolved = uri.resolveUri(getApplication(), allowFdFallback = false)
-                    if (!resolved.isNullOrBlank()) File(resolved) else File(uri.path ?: item.filePath)
-                  }
-                  else -> File(item.filePath)
-                }
-              }
-
-              // Get unique bucket IDs from playlist items' parent folders
-              val bucketIds = fileObjects.mapNotNull { it.parent }.filter { it.isNotBlank() }.toSet()
-
-              // Get all videos and audio files from those folders (uses cache)
-              val allVideos = MediaFileRepository.getVideosForBuckets(getApplication(), bucketIds, includeAudioOverride = true)
-
-              // Match videos by path, maintaining playlist order
-              val videoItems =
-                items.mapIndexedNotNull { index, item ->
-                  val file = fileObjects.getOrNull(index) ?: File(item.filePath)
-                  val isAudioFile = FileTypeUtils.isAudioFile(file)
-                  val matchedVideo = allVideos.find { video ->
-                    video.path == item.filePath ||
-                      video.path == file.absolutePath ||
-                      video.uri.toString() == item.filePath
-                  }
-                  val video = (matchedVideo?.let { if (isAudioFile && !it.isAudio) it.copy(isAudio = true) else it }) ?: run {
-                    if (file.exists()) {
-                      MediaFileRepository.getVideosFromFiles(getApplication(), listOf(file)).firstOrNull()?.let {
-                        if (isAudioFile && !it.isAudio) it.copy(isAudio = true) else it
-                      }
-                    } else {
-                      null
-                    }
-                  } ?: run {
-                    val rawUri = when {
-                      item.filePath.startsWith("content://") || item.filePath.startsWith("http://") || item.filePath.startsWith("https://") -> Uri.parse(item.filePath)
-                      file.exists() -> Uri.fromFile(file)
-                      else -> Uri.parse(item.filePath)
-                    }
-                    Video(
-                      id = item.id.toLong(),
-                      title = item.fileName,
-                      displayName = item.fileName,
-                      path = if (file.exists()) file.absolutePath else item.filePath,
-                      uri = rawUri,
-                      duration = 0L,
-                      durationFormatted = "--",
-                      size = if (file.exists()) file.length() else 0L,
-                      sizeFormatted = "--",
-                      dateModified = item.addedAt,
-                      dateAdded = item.addedAt,
-                      mimeType = if (isAudioFile) "audio/*" else "video/*",
-                      bucketId = file.parent ?: "",
-                      bucketDisplayName = file.parentFile?.name ?: "",
-                      width = 0,
-                      height = 0,
-                      fps = 0f,
-                      resolution = "--",
-                      isAudio = isAudioFile,
-                    )
-                  }
-                  PlaylistVideoItem(item, video)
-                }
+              val videoItems = loadLocalPlaylistItems(items)
 
               Log.d(TAG, "Loaded ${videoItems.size} items out of ${items.size} playlist items")
               _videoItems.value = videoItems
@@ -183,6 +127,26 @@ class PlaylistDetailViewModel(
           _isLoading.value = false
         }
       }
+    }
+  }
+
+  private suspend fun loadLocalPlaylistItems(items: List<PlaylistItemEntity>): List<PlaylistVideoItem> {
+    val videos = MediaFileRepository.getAllVideos(getApplication(), includeAudioOverride = true)
+    val byUri = videos.associateBy { it.path }
+    val byDocument = videos.associateBy { app.infinity.mpvz.utils.storage.SelectedFolderLibrary.documentKey(it.path) }
+    val byLegacyPath = videos.mapNotNull { video ->
+      app.infinity.mpvz.utils.storage.SelectedFolderLibrary.legacyPath(video.uri)?.let { it to video }
+    }.toMap()
+    return items.mapNotNull { item ->
+      val video = byUri[item.filePath] ?: byLegacyPath[item.filePath.removePrefix("file://")]
+        ?: app.infinity.mpvz.utils.storage.SelectedFolderLibrary.documentKey(item.filePath)?.let { byDocument[it] }
+      val playable = video ?: item.filePath.takeIf { it.startsWith("https://") || it.startsWith("http://") }?.let { url ->
+        Video(id = item.id.toLong(), title = item.fileName, displayName = item.fileName, path = url, uri = Uri.parse(url),
+          duration = 0, durationFormatted = "", size = 0, sizeFormatted = "", dateModified = item.addedAt, dateAdded = item.addedAt,
+          mimeType = if (_playlist.value?.isAudio == true) "audio/*" else "video/*", bucketId = "", bucketDisplayName = "",
+          width = 0, height = 0, fps = 0f, resolution = "", isAudio = _playlist.value?.isAudio == true)
+      }
+      playable?.let { PlaylistVideoItem(item, it) }
     }
   }
 
@@ -208,43 +172,7 @@ class PlaylistDetailViewModel(
         if (isM3uPlaylist) {
           _videoItems.value = buildM3UVideoItems(playlist, items)
         } else {
-          // For regular playlists, use existing logic
-          val bucketIds =
-            items
-              .map { item ->
-                File(item.filePath).parent ?: ""
-              }.toSet()
-          val allVideos = MediaFileRepository.getVideosForBuckets(getApplication(), bucketIds, includeAudioOverride = true)
-          val videoItems =
-            items.mapNotNull { item ->
-              val matchedVideo = allVideos.find { video -> video.path == item.filePath }
-              val video = matchedVideo ?: run {
-                val file = File(item.filePath)
-                val isAudioFile = FileTypeUtils.isAudioFile(file)
-                Video(
-                  id = item.id.toLong(),
-                  title = item.fileName,
-                  displayName = item.fileName,
-                  path = item.filePath,
-                  uri = android.net.Uri.fromFile(file),
-                  duration = 0L,
-                  durationFormatted = "--",
-                  size = if (file.exists()) file.length() else 0L,
-                  sizeFormatted = "--",
-                  dateModified = item.addedAt,
-                  dateAdded = item.addedAt,
-                  mimeType = if (isAudioFile) "audio/*" else "video/*",
-                  bucketId = "",
-                  bucketDisplayName = "",
-                  width = 0,
-                  height = 0,
-                  fps = 0f,
-                  resolution = "--",
-                  isAudio = isAudioFile,
-                )
-              }
-              PlaylistVideoItem(item, video)
-            }
+          val videoItems = loadLocalPlaylistItems(items)
           _videoItems.value = videoItems
         }
       } else {

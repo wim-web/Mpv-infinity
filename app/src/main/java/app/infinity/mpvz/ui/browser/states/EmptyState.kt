@@ -45,6 +45,7 @@ fun EmptyState(
   title: String,
   message: String,
   modifier: Modifier = Modifier,
+  action: (@Composable () -> Unit)? = null,
 ) {
   // Animated alpha for subtle pulsing effect
   val infiniteTransition = rememberInfiniteTransition(label = "empty_state")
@@ -112,6 +113,10 @@ fun EmptyState(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         lineHeight = MaterialTheme.typography.bodyMedium.lineHeight,
       )
+      if (action != null) {
+        Spacer(modifier = Modifier.height(16.dp))
+        action()
+      }
     }
   }
 }

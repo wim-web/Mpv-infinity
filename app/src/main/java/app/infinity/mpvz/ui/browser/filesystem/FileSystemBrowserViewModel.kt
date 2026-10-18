@@ -132,7 +132,7 @@ class FileSystemBrowserViewModel(
   }
 
   private var libraryLoadJob: kotlinx.coroutines.Job? = null
-  private var libraryScopeKey = MediaFileRepository.currentScanOptions().cacheKey
+  private var libraryScopeKey = app.infinity.mpvz.utils.storage.SelectedFolderLibrary.scopeKey(getApplication())
 
   init {
     // If no initial path was specified, check storage volumes and navigate accordingly
@@ -164,7 +164,7 @@ class FileSystemBrowserViewModel(
     // Similar to Fossify's media scan completion listener
     viewModelScope.launch(Dispatchers.IO) {
       MediaLibraryEvents.changes.collectLatest {
-        val scopeKey = MediaFileRepository.currentScanOptions().cacheKey
+        val scopeKey = app.infinity.mpvz.utils.storage.SelectedFolderLibrary.scopeKey(getApplication())
         if (scopeKey != libraryScopeKey) {
           libraryScopeKey = scopeKey
           homeDirectory = null

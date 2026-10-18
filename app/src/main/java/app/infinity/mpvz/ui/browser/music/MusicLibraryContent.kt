@@ -227,7 +227,6 @@ fun MusicLibraryContent(
   var isSearchActive by remember { mutableStateOf(false) }
   var isSortMenuExpanded by remember { mutableStateOf(false) }
   var showCreatePlaylistDialog by remember { mutableStateOf(false) }
-  var selectedPlaylistForDetail by remember { mutableStateOf<PlaylistEntity?>(null) }
 
   var selectedSongForOptions by remember { mutableStateOf<MusicSong?>(null) }
   var selectedAlbumForOptions by remember { mutableStateOf<MusicAlbum?>(null) }
@@ -320,7 +319,7 @@ fun MusicLibraryContent(
   val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
   // Handle storage permission so onPermissionGranted triggers an immediate scan on first launch
-  val permissionState = PermissionUtils.handleStoragePermission(
+  val permissionState = app.infinity.mpvz.ui.browser.rememberLibraryPermissionState(
     audioOnly = true,
     onPermissionGranted = { musicViewModel.scanLibrary(context) },
   )
@@ -440,13 +439,6 @@ fun MusicLibraryContent(
     }
   }
 
-  // Playlist detail overlay when a playlist is opened
-  selectedPlaylistForDetail?.let { playlist ->
-    BackHandler { selectedPlaylistForDetail = null }
-    PlaylistDetailScreen(playlistId = playlist.id).Content()
-    return
-  }
-
   val totalCount = when (selectedTab) {
     MusicTab.SONGS -> songs.size
     MusicTab.ALBUMS -> albums.size
@@ -504,9 +496,7 @@ fun MusicLibraryContent(
               onCancelSelection = { activeSelectionManager.clear() },
               onSortClick = { isSortMenuExpanded = true },
               onSearchClick = { isSearchActive = true },
-              onSettingsClick = {
-                backStack.add(PreferencesScreen)
-              },
+              onSettingsClick = null,
               leadingActions = {
                 if (!activeSelectionManager.isInSelectionMode) {
                   Icon(
@@ -525,6 +515,12 @@ fun MusicLibraryContent(
               },
               additionalActions = {
                 if (!activeSelectionManager.isInSelectionMode) {
+                  app.infinity.mpvz.ui.browser.LibraryMenu(onPlaylists = {
+                    scope.launch {
+                      musicViewModel.setTab(MusicTab.PLAYLISTS)
+                      pagerState.animateScrollToPage(visibleTabs.indexOf(MusicTab.PLAYLISTS).coerceAtLeast(0))
+                    }
+                  })
                   IconButton(
                     onClick = { backStack.add(AudiobookLibraryScreen) },
                     modifier = Modifier.padding(horizontal = 2.dp),
@@ -619,18 +615,6 @@ fun MusicLibraryContent(
           )
         }
 
-        Text(stringResource(R.string.library_playlist_help), modifier = Modifier.padding(horizontal = 12.dp))
-        Row {
-          TextButton(onClick = {
-            scope.launch {
-              musicViewModel.setTab(MusicTab.PLAYLISTS)
-              pagerState.animateScrollToPage(visibleTabs.indexOf(MusicTab.PLAYLISTS).coerceAtLeast(0))
-            }
-          }) { Text(stringResource(R.string.ui_playlists)) }
-          TextButton(onClick = { showCreatePlaylistDialog = true }) {
-            Text(stringResource(R.string.ui_create_playlist))
-          }
-        }
         PrimaryScrollableTabRow(
           selectedTabIndex = pagerState.currentPage.coerceIn(0, (visibleTabs.size - 1).coerceAtLeast(0)),
           containerColor = Color.Transparent,
@@ -765,10 +749,12 @@ fun MusicLibraryContent(
     ) {
       PullRefreshBox(
         isRefreshing = isRefreshing,
-        onRefresh = { musicViewModel.scanLibrary(context) },
+        onRefresh = { app.infinity.mpvz.utils.storage.SelectedFolderLibrary.invalidate(); musicViewModel.scanLibrary(context) },
         modifier = Modifier.fillMaxSize()
       ) {
-        if (isLoading && songs.isEmpty()) {
+        if (permissionState.status != com.google.accompanist.permissions.PermissionStatus.Granted && selectedTab != MusicTab.PLAYLISTS) {
+          app.infinity.mpvz.ui.browser.LibraryFolderEmptyState(onChoose = { permissionState.launchPermissionRequest() })
+        } else if (isLoading && songs.isEmpty()) {
           Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -851,7 +837,7 @@ fun MusicLibraryContent(
                   if (playlistSelectionManager.isInSelectionMode) {
                     playlistSelectionManager.toggle(playlist)
                   } else {
-                    selectedPlaylistForDetail = playlist
+                    backStack.add(PlaylistDetailScreen(playlist.id))
                   }
                 },
                 onPlaylistLongClick = { playlist ->
@@ -947,7 +933,7 @@ fun MusicLibraryContent(
                 Spacer(modifier = Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
                   Text(text = song.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                  Text(text = "${song.artist} • ${song.album}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                  Text(text = listOf(song.artist, song.album).filter { it.isNotBlank() }.joinToString(" • "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
               }
 
@@ -1215,7 +1201,7 @@ fun MusicLibraryContent(
                 modifier = Modifier.clickable {
                   val target = playlist
                   selectedPlaylistForOptions = null
-                  selectedPlaylistForDetail = target
+                  backStack.add(PlaylistDetailScreen(target.id))
                 }
               )
               if (!playlist.name.equals(PlaylistRepository.FAVORITES_PLAYLIST_NAME, ignoreCase = true)) {
@@ -1614,7 +1600,7 @@ private fun SongListItem(
 ) {
   SharedMusicTrackListItem(
     title = song.title,
-    subtitle = "${song.artist} • ${song.album}",
+    subtitle = listOf(song.artist, song.album).filter { it.isNotBlank() }.joinToString(" • "),
     albumArtUri = song.albumArtUri,
     durationSeconds = song.durationMs / 1000,
     isPlaying = isPlaying,

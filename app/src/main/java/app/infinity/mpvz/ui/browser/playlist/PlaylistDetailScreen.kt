@@ -277,7 +277,8 @@ data class PlaylistDetailScreen(
           action = Intent.ACTION_VIEW
           data = playUri
           putExtra("internal_launch", true)
-          putExtra("local_media_path", item.video.path)
+          if (item.video.path.startsWith("/")) putExtra("local_media_path", item.video.path)
+          addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
           putExtra("playlist_index", startIndex)
           putExtra("playlist_id", playlistId)
           putExtra("launch_source", if (playlist?.isM3uPlaylist == true) "m3u_playlist" else "playlist")
@@ -513,7 +514,7 @@ data class PlaylistDetailScreen(
         }
       },
       floatingActionButton = {
-        if (!isSearching && !isReorderMode && !selectionManager.isInSelectionMode && playlist?.isM3uPlaylist != true) {
+        if (playlist != null && !isSearching && !isReorderMode && !selectionManager.isInSelectionMode && playlist?.isM3uPlaylist != true) {
           val isAudioPlaylist = playlist?.isAudio == true || videoItems.any { it.video.isAudio }
           ExtendedFloatingActionButton(
             modifier =
@@ -917,13 +918,7 @@ private fun PlaylistVideoListContent(
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
-          Text(
-            text =
-              if (isAudio) "Add songs to get started"
-              else androidx.compose.ui.res.stringResource(app.infinity.mpvz.R.string.ui_add_videos_to_get_started),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
+
         }
       }
     }

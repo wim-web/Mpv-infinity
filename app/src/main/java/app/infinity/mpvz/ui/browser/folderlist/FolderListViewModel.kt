@@ -171,8 +171,8 @@ class FolderListViewModel(
 
     viewModelScope.launch {
       combine(
-        foldersPreferences.selectedVideoFolders.changes(),
-        foldersPreferences.selectedAudioFolders.changes(),
+        foldersPreferences.selectedVideoTrees.changes(),
+        foldersPreferences.selectedAudioTrees.changes(),
       ) { video, audio -> video to audio }.drop(1).collectLatest {
         currentScanJob?.cancel()
         cacheWriteJob?.cancel()
@@ -265,16 +265,12 @@ class FolderListViewModel(
       }
   }
 
-  private fun isSelectedFolder(path: String): Boolean {
-    val roots = if (audioOnly) foldersPreferences.selectedAudioFolders.get()
-      else MediaFileRepository.currentScanOptions().selectedRoots
-    return app.infinity.mpvz.utils.storage.SelectedMediaFolders.contains(roots, path)
-  }
+  private fun isSelectedFolder(path: String): Boolean =
+    app.infinity.mpvz.utils.storage.SelectedFolderLibrary.contains(getApplication(), path, audioOnly) ||
+      (!audioOnly && browserPreferences.includeAudioBrowser.get() && app.infinity.mpvz.utils.storage.SelectedFolderLibrary.contains(getApplication(), path, true))
 
   private fun currentFolderCacheKey(): String =
-    MediaFileRepository.currentScanOptions().cacheKey + "folders_${if (audioOnly) "audioOnly" else "video"}" +
-      "_${if (foldersPreferences.includeNoMediaFolders.get()) "with_nomedia" else "exclude_nomedia"}" +
-      "_audio_${browserPreferences.includeAudioBrowser.get()}_${browserPreferences.minimumAudioDurationSeconds.get()}"
+    "saf-v1|$audioOnly|${app.infinity.mpvz.utils.storage.SelectedFolderLibrary.scopeKey(getApplication())}|${browserPreferences.includeAudioBrowser.get()}|${browserPreferences.minimumAudioDurationSeconds.get()}"
 
   private fun serializeFoldersToJson(folders: List<VideoFolder>): String {
     // Simple JSON serialization
@@ -449,20 +445,7 @@ class FolderListViewModel(
   }
 
   private fun triggerMediaScan() {
-    try {
-      val roots = if (audioOnly) foldersPreferences.selectedAudioFolders.get()
-        else MediaFileRepository.currentScanOptions().selectedRoots
-      if (roots.isEmpty()) return
-      android.media.MediaScannerConnection.scanFile(
-        getApplication(),
-        roots.toTypedArray(),
-        null,
-      ) { path, uri ->
-        Log.d(TAG, "Media scan completed for: $path -> $uri")
-      }
-    } catch (error: Exception) {
-      Log.e(TAG, "Failed to trigger media scan", error)
-    }
+    // SAF providers are queried directly; do not ask MediaScanner to traverse device storage.
   }
 
   /**

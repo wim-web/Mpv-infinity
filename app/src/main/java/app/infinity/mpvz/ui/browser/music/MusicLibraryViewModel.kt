@@ -121,7 +121,7 @@ class MusicLibraryViewModel : ViewModel(), KoinComponent {
       }
     }
     viewModelScope.launch {
-      foldersPreferences.selectedAudioFolders.changes().collectLatest {
+      foldersPreferences.selectedAudioTrees.changes().collectLatest {
         refreshJob?.cancel()
         _allSongs.value = emptyList()
         applyFilters(browserPreferences.minimumAudioDurationSeconds.get(), foldersPreferences.blacklistedAudioFolders.get())
@@ -217,7 +217,7 @@ class MusicLibraryViewModel : ViewModel(), KoinComponent {
       val meetsDuration = (minimumMs == 0L || song.durationMs >= minimumMs)
       val isNotBlacklisted = !FolderBlacklistMatcher.isMediaFileBlacklisted(song.path, blacklist)
       meetsDuration && isNotBlacklisted &&
-        app.infinity.mpvz.utils.storage.SelectedMediaFolders.contains(foldersPreferences.selectedAudioFolders.get(), song.path)
+        app.infinity.mpvz.utils.storage.SelectedFolderLibrary.contains(context, song.path, true)
     }
 
     _songs.value = visibleSongs

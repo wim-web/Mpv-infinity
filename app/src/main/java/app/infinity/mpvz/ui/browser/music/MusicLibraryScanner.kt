@@ -23,100 +23,16 @@ object MusicLibraryScanner {
   private val ALBUM_ART_BASE_URI = Uri.parse("content://media/external/audio/albumart")
 
   suspend fun scanSongs(context: Context): List<MusicSong> = withContext(Dispatchers.IO) {
-    val songs = mutableListOf<MusicSong>()
-    val projection = arrayOf(
-      MediaStore.Audio.Media._ID,
-      MediaStore.Audio.Media.TITLE,
-      MediaStore.Audio.Media.ARTIST,
-      MediaStore.Audio.Media.ALBUM,
-      MediaStore.Audio.Media.ALBUM_ID,
-      MediaStore.Audio.Media.DURATION,
-      MediaStore.Audio.Media.DATA,
-      MediaStore.Audio.Media.DATE_ADDED,
-      MediaStore.Audio.Media.TRACK,
-      MediaStore.Audio.Media.YEAR,
-      MediaStore.Audio.Media.SIZE
-    )
-
-    val folders = org.koin.core.context.GlobalContext.get().get<app.infinity.mpvz.preferences.FoldersPreferences>()
-    val selectedFolders = folders.selectedAudioFolders.get()
-    val scope = app.infinity.mpvz.utils.storage.SelectedMediaFolders.selection(selectedFolders)
-    if (selectedFolders.isEmpty()) return@withContext emptyList()
-    val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 OR ${MediaStore.Audio.Media.DURATION} > 1000"
-    val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
-
-    try {
-      context.contentResolver.query(
-        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-        projection,
-        "($selection) AND ${scope.sql}",
-        scope.args,
-        sortOrder
-      )?.use { cursor ->
-        val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-        val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-        val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-        val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-        val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-        val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-        val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-        val dateAddedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
-        val trackCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
-        val yearCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
-        val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-
-        while (cursor.moveToNext()) {
-          val id = cursor.getLong(idCol)
-          val path = cursor.getString(dataCol).orEmpty()
-          if (!app.infinity.mpvz.utils.storage.SelectedMediaFolders.contains(selectedFolders, path)) continue
-          val size = cursor.getLong(sizeCol)
-          val duration = cursor.getLong(durationCol)
-          val file = path.takeIf { it.isNotBlank() }?.let(::File)
-          val fileExists = try { file?.exists() == true } catch (_: Exception) { false }
-          if (!fileExists && size <= 0L && duration <= 0L) continue
-
-          val title = cursor.getString(titleCol)?.takeIf { it.isNotBlank() }
-            ?: file?.nameWithoutExtension
-            ?: "Unknown Track"
-          val artist = cursor.getString(artistCol)?.takeIf { it.isNotBlank() && it != "<unknown>" } ?: "Unknown Artist"
-          val album = cursor.getString(albumCol)?.takeIf { it.isNotBlank() && it != "<unknown>" } ?: "Unknown Album"
-          val albumId = cursor.getLong(albumIdCol)
-          val dateAdded = cursor.getLong(dateAddedCol)
-          val track = cursor.getInt(trackCol)
-          val year = cursor.getInt(yearCol)
-
-          val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
-          // Keep the initial scan MediaStore-only. Extracting embedded artwork with
-          // MediaMetadataRetriever for every track blocks the first library render;
-          // the album-art content URI is resolved lazily by the image layer.
-          val albumArtUri = albumId.takeIf { it > 0 }?.let {
-            ContentUris.withAppendedId(ALBUM_ART_BASE_URI, it)
-          }
-
-          songs.add(
-            MusicSong(
-              id = id,
-              title = title,
-              artist = artist,
-              album = album,
-              albumId = albumId,
-              durationMs = duration,
-              path = path,
-              uri = contentUri,
-              dateAdded = dateAdded,
-              trackNumber = track,
-              year = year,
-              albumArtUri = albumArtUri,
-              size = size
-            )
-          )
-        }
-      }
-    } catch (e: Exception) {
-      Log.e(TAG, "Error scanning songs from MediaStore", e)
+    val library = app.infinity.mpvz.utils.storage.SelectedFolderLibrary
+    library.videos(context, true).map { video ->
+      val entry = library.entry(context, video)
+      val artist = entry.artist.ifBlank { context.getString(app.infinity.mpvz.R.string.library_unknown_artist) }
+      val album = entry.album.ifBlank { video.bucketDisplayName }
+      MusicSong(id = video.id, title = video.title, artist = artist, album = album,
+        albumId = library.stableId("$artist|$album"), durationMs = video.duration,
+        path = video.path, uri = video.uri, dateAdded = video.dateAdded, trackNumber = entry.track, year = entry.year,
+        albumArtUri = findArtworkUri(context, video.uri, video.path, 0), size = video.size)
     }
-
-    songs
   }
 
   /** Prefer embedded/sidecar art because the legacy album-art provider is absent on many devices. */
@@ -135,7 +51,7 @@ object MusicLibraryScanner {
     }.getOrNull()?.takeIf { it.isNotEmpty() }
     if (embeddedBytes != null) saveArtwork(context, embeddedBytes, "embedded:$path")?.let { return it }
 
-    app.infinity.mpvz.domain.thumbnail.EmbeddedArtworkResolver.decodeSidecar(path)?.let { bitmap ->
+    (if (path.startsWith("content://")) null else app.infinity.mpvz.domain.thumbnail.EmbeddedArtworkResolver.decodeSidecar(path))?.let { bitmap ->
       return try {
         saveArtwork(context, bitmap, "sidecar:$path:${File(path).lastModified()}")
       } finally {

@@ -1,100 +1,108 @@
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
-
 package app.infinity.mpvz.ui.preferences
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import android.content.Intent
+import android.net.Uri
+import android.provider.DocumentsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.infinity.mpvz.R
 import app.infinity.mpvz.preferences.FoldersPreferences
+import app.infinity.mpvz.preferences.preference.PreferenceStore
 import app.infinity.mpvz.preferences.preference.collectAsState
 import app.infinity.mpvz.presentation.Screen
 import app.infinity.mpvz.repository.MediaFileRepository
-import app.infinity.mpvz.ui.browser.dialogs.FolderPickerDialog
+import app.infinity.mpvz.ui.browser.components.BrowserTopBar
+import app.infinity.mpvz.ui.icons.Icon
+import app.infinity.mpvz.ui.icons.Icons
+import app.infinity.mpvz.ui.theme.AppShapeScale
 import app.infinity.mpvz.ui.utils.LocalBackStack
 import app.infinity.mpvz.ui.utils.popSafely
 import app.infinity.mpvz.utils.media.MediaLibraryEvents
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import org.koin.compose.koinInject
-import java.io.File
 
 @Serializable
 object LibraryFoldersScreen : Screen {
+  @OptIn(ExperimentalMaterial3Api::class)
   @Composable
   override fun Content() {
-    val preferences = koinInject<FoldersPreferences>()
-    val videos by preferences.selectedVideoFolders.collectAsState()
-    val audio by preferences.selectedAudioFolders.collectAsState()
+    val prefs = koinInject<FoldersPreferences>()
+    val store = koinInject<PreferenceStore>()
+    val video by prefs.selectedVideoTrees.collectAsState()
+    val audio by prefs.selectedAudioTrees.collectAsState()
+    val context = LocalContext.current
     val backStack = LocalBackStack.current
-    var pickingAudio by remember { mutableStateOf<Boolean?>(null) }
-
-    fun update(isAudio: Boolean, paths: Set<String>) {
-      val preference = if (isAudio) preferences.selectedAudioFolders else preferences.selectedVideoFolders
-      preference.set(paths)
-      MediaFileRepository.clearCache()
-      MediaLibraryEvents.notifyChanged()
+    val labels by produceState<Map<String, String>>(emptyMap(), video, audio) {
+      value = withContext(Dispatchers.IO) {
+        (video + audio).associateWith { app.infinity.mpvz.utils.media.openPersistedTreeDocument(context, it)?.name.orEmpty() }
+      }
     }
-
-    Scaffold { padding ->
-      LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-      ) {
-        item {
-          TextButton(onClick = { backStack.popSafely() }) { Text(stringResource(R.string.library_back)) }
-          Text(stringResource(R.string.library_folders), style = MaterialTheme.typography.headlineSmall)
-          Text(stringResource(R.string.library_folder_help))
+    val picker = app.infinity.mpvz.ui.browser.rememberLibraryFolderPicker()
+    fun changed() { MediaFileRepository.clearCache(); MediaLibraryEvents.notifyChanged() }
+    fun remove(isAudio: Boolean, uri: String) {
+      val preference = if (isAudio) prefs.selectedAudioTrees else prefs.selectedVideoTrees
+      preference.set(preference.get() - uri)
+      val used = prefs.selectedVideoTrees.get() + prefs.selectedAudioTrees.get()
+      val otherReferences = store.getAll().filterKeys { it !in setOf("selected_video_trees", "selected_audio_trees", "library_owned_tree_grants") }
+        .values.any { it == uri || (it is Set<*> && uri in it) }
+      if (uri !in used && uri in prefs.libraryOwnedTreeGrants.get() && !otherReferences) {
+        runCatching {
+          val grant = context.contentResolver.persistedUriPermissions.firstOrNull { it.uri.toString() == uri }
+          val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or (if (grant?.isWritePermission == true) Intent.FLAG_GRANT_WRITE_URI_PERMISSION else 0)
+          context.contentResolver.releasePersistableUriPermission(Uri.parse(uri), flags)
         }
+        prefs.libraryOwnedTreeGrants.set(prefs.libraryOwnedTreeGrants.get() - uri)
+      }
+      changed()
+    }
+    Scaffold(topBar = {
+      BrowserTopBar(title = stringResource(R.string.library_folders), isInSelectionMode = false,
+        selectedCount = 0, totalCount = 0, onCancelSelection = {}, onBackClick = { backStack.popSafely() })
+    }) { padding ->
+      LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)) {
         listOf(false, true).forEach { isAudio ->
-          val paths = if (isAudio) audio else videos
           item {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
               Text(stringResource(if (isAudio) R.string.library_audio_folders else R.string.library_video_folders),
-                style = MaterialTheme.typography.titleLarge)
-              if (paths.isEmpty()) Text(stringResource(R.string.library_select_prompt))
-              Button(onClick = { pickingAudio = isAudio }) { Text(stringResource(R.string.library_add_folder)) }
-            }
-          }
-          items(paths.sorted(), key = { "$isAudio:$it" }) { path ->
-            Row(modifier = Modifier.fillMaxWidth()) {
-              Text(path, modifier = Modifier.weight(1f))
-              TextButton(onClick = { update(isAudio, paths - path) }) {
-                Text(stringResource(R.string.library_remove))
+                style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp))
+              Surface(shape = AppShapeScale.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+                Column {
+                  (if (isAudio) audio else video).sorted().forEach { uri ->
+                    val label = runCatching { DocumentsContract.getTreeDocumentId(Uri.parse(uri)).substringAfter(':').ifBlank { DocumentsContract.getTreeDocumentId(Uri.parse(uri)) } }.getOrDefault(uri)
+                    ListItem(headlineContent = { Text(labels[uri]?.takeIf { it.isNotBlank() } ?: label.substringAfterLast('/')) },
+                      supportingContent = if ('/' in label) ({ Text(label) }) else null,
+                      leadingContent = { Icon(Icons.RoundedFilled.Folder, contentDescription = null) },
+                      trailingContent = {
+                        IconButton(onClick = { remove(isAudio, uri) }) {
+                          Icon(Icons.RoundedFilled.Close, contentDescription = stringResource(R.string.library_remove))
+                        }
+                      }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer))
+                  }
+                  TextButton(onClick = { picker(isAudio) }, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                    Icon(Icons.RoundedFilled.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.library_add_folder))
+                  }
+                }
               }
             }
           }
         }
       }
-    }
-    pickingAudio?.let { isAudio ->
-      FolderPickerDialog(
-        isOpen = true,
-        currentPath = "",
-        onDismiss = { pickingAudio = null },
-        onFolderSelected = { path ->
-          val normalized = runCatching { File(path).canonicalPath }.getOrDefault(path)
-          update(isAudio, (if (isAudio) audio else videos) + normalized)
-          pickingAudio = null
-        },
-      )
     }
   }
 }

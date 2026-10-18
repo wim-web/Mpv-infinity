@@ -169,7 +169,10 @@ fun FolderCard(
     }
 
   // Remove the redundant folder name from the path
-  val parentPath = folder.path.substringBeforeLast("/", folder.path)
+  val parentPath = if (folder.path.startsWith("content://")) {
+    app.infinity.mpvz.utils.storage.SelectedFolderLibrary.legacyPath(android.net.Uri.parse(folder.path))
+      ?.removePrefix("/storage/emulated/0/")?.substringBeforeLast('/', "").orEmpty()
+  } else folder.path.substringBeforeLast("/", folder.path)
 
   @Composable
   fun PinnedFolderBadge(modifier: Modifier = Modifier) {

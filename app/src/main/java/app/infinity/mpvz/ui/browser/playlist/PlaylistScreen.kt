@@ -71,6 +71,7 @@ import app.infinity.mpvz.ui.browser.states.EmptyState
 import app.infinity.mpvz.ui.components.InlineSearchBar
 import app.infinity.mpvz.ui.icons.Icon
 import app.infinity.mpvz.ui.icons.Icons
+import app.infinity.mpvz.ui.utils.popSafely
 import app.infinity.mpvz.ui.utils.LocalBackStack
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -231,7 +232,7 @@ object PlaylistScreen : Screen {
             isInSelectionMode = selectionManager.isInSelectionMode,
             selectedCount = selectionManager.selectedCount,
             totalCount = playlistsWithCount.size,
-            onBackClick = null,
+            onBackClick = if (backStack.size > 1 && backStack.lastOrNull() == PlaylistScreen) ({ backStack.popSafely() }) else null,
             onCancelSelection = { selectionManager.clear() },
             isSingleSelection = selectionManager.isSingleSelection,
             onSearchClick = { isSearching = true },

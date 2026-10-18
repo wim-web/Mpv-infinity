@@ -318,6 +318,11 @@ object MetadataRetrieval {
         return@withContext folder
       }
 
+      if (folder.path.startsWith("content://")) {
+        val videos = app.infinity.mpvz.repository.MediaFileRepository.getVideosInFolder(context, folder.bucketId, includeAudioOverride = true)
+        return@withContext folder.copy(totalDuration = videos.sumOf { it.duration })
+      }
+
       // Extract metadata for all videos in folder
       try {
         val directory = File(folder.path)

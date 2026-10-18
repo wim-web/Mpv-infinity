@@ -9,6 +9,7 @@
 
 package app.infinity.mpvz.repository
 
+import app.infinity.mpvz.utils.storage.SelectedFolderLibrary
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
@@ -63,8 +64,8 @@ object MediaFileRepository : KoinComponent {
 
   fun currentScanOptions(includeAudioOverride: Boolean? = null): MediaScanOptions =
     MediaScanOptions(
-      videoFolders = foldersPreferences.selectedVideoFolders.get(),
-      audioFolders = foldersPreferences.selectedAudioFolders.get(),
+      videoFolders = emptySet(),
+      audioFolders = emptySet(),
       includeNoMediaFolders = foldersPreferences.includeNoMediaFolders.get(),
       hiddenFolderMarkerNames = foldersPreferences.hiddenFolderMarkerNames.get(),
       includeAudio = includeAudioOverride ?: browserPreferences.includeAudioBrowser.get(),
@@ -94,6 +95,7 @@ object MediaFileRepository : KoinComponent {
    * Call this when media library changes are detected or when forcing a hard refresh
    */
   fun clearCache() {
+    SelectedFolderLibrary.invalidate()
     Log.d(TAG, "Clearing all caches (FolderViewScanner + TreeViewScanner)")
     FolderViewScanner.clearCache()
     TreeViewScanner.clearCache()
@@ -102,10 +104,12 @@ object MediaFileRepository : KoinComponent {
 
   /** Invalidates only the album MediaStore snapshot, preserving tree and filesystem indexes. */
   fun invalidateFolderCache() {
+    SelectedFolderLibrary.invalidate()
     FolderViewScanner.clearCache()
   }
 
   fun invalidateTreeCache() {
+    SelectedFolderLibrary.invalidate()
     TreeViewScanner.clearCache()
   }
 
@@ -120,226 +124,38 @@ object MediaFileRepository : KoinComponent {
     context: Context,
     forceFileSystemCheck: Boolean = false,
     includeAudioOverride: Boolean? = null,
-  ): List<VideoFolder> =
-    withContext(Dispatchers.IO) {
-      try {
-        val mediaStoreFolders =
-          FolderViewScanner.getAllVideoFolders(
-            context,
-            currentScanOptions(includeAudioOverride),
-            forceFileSystemCheck,
-          )
-        val indexedFolders =
-          FolderViewScanner.getIndexedNoMediaFolders(
-            currentScanOptions(includeAudioOverride),
-            database.directoryScanDao(),
-          )
-        (mediaStoreFolders + indexedFolders)
-          .distinctBy { it.path.lowercase(Locale.ROOT) }
-          .sortedBy { it.name.lowercase(Locale.getDefault()) }
-      } catch (e: Exception) {
-        Log.e(TAG, "Error scanning for video folders", e)
-        emptyList()
-      }
-    }
+  ): List<VideoFolder> {
+    if (forceFileSystemCheck) SelectedFolderLibrary.invalidate()
+    val video = SelectedFolderLibrary.folders(context, false)
+    val audio = if (includeAudioOverride ?: browserPreferences.includeAudioBrowser.get())
+      SelectedFolderLibrary.folders(context, true, browserPreferences.minimumAudioDurationSeconds.get()) else emptyList()
+    return (video + audio).groupBy { it.bucketId }.map { (_, folders) ->
+      folders.first().copy(videoCount = folders.sumOf { it.videoCount }, totalSize = folders.sumOf { it.totalSize },
+        totalDuration = folders.sumOf { it.totalDuration })
+    }.sortedBy { it.name.lowercase() }
+  }
 
-  /** Fast MediaStore-only phase. Hidden folders arrive through the incremental flow below. */
   suspend fun getAllVideoFoldersFast(
     context: Context,
     onProgress: ((Int) -> Unit)? = null,
     forceFileSystemCheck: Boolean = false,
     includeAudioOverride: Boolean? = null,
-  ): List<VideoFolder> =
-    withContext(Dispatchers.IO) {
-      FolderViewScanner
-        .getAllVideoFolders(
-          context = context,
-          options = currentScanOptions(includeAudioOverride),
-          forceFileSystemCheck = forceFileSystemCheck,
-        ).also { onProgress?.invoke(it.size) }
-    }
+  ): List<VideoFolder> = getAllVideoFolders(context, forceFileSystemCheck, includeAudioOverride).also { onProgress?.invoke(it.size) }
 
-  suspend fun getIndexedNoMediaFolders(): List<VideoFolder> =
-    FolderViewScanner.getIndexedNoMediaFolders(currentScanOptions(), database.directoryScanDao())
+  suspend fun getIndexedNoMediaFolders(): List<VideoFolder> = emptyList()
 
-  /**
-   * Scans MediaStore for all audio (music) files and groups them by parent folder.
-   * Powers the dedicated Music tab so audio is kept separate from the video browser.
-   */
-  suspend fun getAllAudioFolders(
-    context: Context,
-    minimumAudioDurationSeconds: Int = 0,
-  ): List<VideoFolder> =
-    withContext(Dispatchers.IO) {
-      val audioOptions = currentScanOptions(includeAudioOverride = true)
-      val audioScope = audioOptions.selection(true)
-      val aggregates = linkedMapOf<String, AudioFolderAggregate>()
-      try {
-        val projection =
-          arrayOf(
-            MediaStore.Audio.Media.DATA,
-            MediaStore.Audio.Media.SIZE,
-            MediaStore.Audio.Media.DURATION,
-            MediaStore.Audio.Media.DATE_MODIFIED,
-          )
-        context.contentResolver
-          .query(
-            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-            projection,
-            audioScope.sql,
-            audioScope.args,
-            null,
-          )?.use { cursor ->
-            val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-            val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-            val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
-            while (cursor.moveToNext()) {
-              val path = cursor.getString(dataColumn)
-              val file = File(path)
-              if (!app.infinity.mpvz.utils.storage.SelectedMediaFolders.contains(audioOptions.audioFolders, path) || !file.exists()) continue
-              val durationMs = cursor.getLong(durationColumn)
-              if (minimumAudioDurationSeconds > 0 && durationMs / 1000 < minimumAudioDurationSeconds) continue
-              val parentPath = file.parent ?: continue
-              val key = normalizeAudioFolderKey(parentPath)
-              val aggregate = aggregates.getOrPut(key) { AudioFolderAggregate(path = parentPath) }
-              aggregate.size += cursor.getLong(sizeColumn)
-              aggregate.duration += durationMs
-              aggregate.lastModified = maxOf(aggregate.lastModified, cursor.getLong(dateColumn))
-              aggregate.count += 1
-            }
-          }
-      } catch (e: Exception) {
-        Log.e(TAG, "Error scanning for audio folders", e)
-      }
-      aggregates.values
-        .map { agg ->
-          VideoFolder(
-            bucketId = agg.path,
-            name = leafName(agg.path),
-            path = agg.path,
-            videoCount = agg.count,
-            totalSize = agg.size,
-            totalDuration = agg.duration,
-            lastModified = agg.lastModified,
-          )
-        }.sortedBy { it.name.lowercase(Locale.getDefault()) }
-    }
+  suspend fun getAllAudioFolders(context: Context, minimumAudioDurationSeconds: Int = 0): List<VideoFolder> =
+    SelectedFolderLibrary.folders(context, true, minimumAudioDurationSeconds)
 
-  /**
-   * Searches MediaStore audio by title/artist/album/display name for the Music tab search.
-   */
-  suspend fun searchAudio(
-    context: Context,
-    query: String,
-    limit: Int = 50,
-  ): List<Video> =
-    withContext(Dispatchers.IO) {
-      val audioOptions = currentScanOptions(includeAudioOverride = true)
-      val audioScope = audioOptions.selection(true)
-      val results = mutableListOf<Video>()
-      try {
-        val like = "%${query.trim()}%"
-        val selection =
-          "${MediaStore.Audio.Media.TITLE} LIKE ? OR " +
-            "${MediaStore.Audio.Media.ARTIST} LIKE ? OR " +
-            "${MediaStore.Audio.Media.ALBUM} LIKE ? OR " +
-            "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ?"
-        val projection =
-          arrayOf(
-            MediaStore.Audio.Media.DATA,
-            MediaStore.Audio.Media.TITLE,
-            MediaStore.Audio.Media.DISPLAY_NAME,
-            MediaStore.Audio.Media.SIZE,
-            MediaStore.Audio.Media.DURATION,
-            MediaStore.Audio.Media.DATE_MODIFIED,
-            MediaStore.Audio.Media.ARTIST,
-            MediaStore.Audio.Media.ALBUM,
-          )
-        context.contentResolver
-          .query(
-            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-            projection,
-            "($selection) AND ${audioScope.sql}",
-            arrayOf(like, like, like, like) + audioScope.args,
-            "${MediaStore.Audio.Media.TITLE} ASC",
-          )?.use { cursor ->
-            val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val displayColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
-            val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-            val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-            val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
-            var guard = 0
-            while (cursor.moveToNext() && guard < limit) {
-              guard++
-              val path = cursor.getString(dataColumn)
-              val file = File(path)
-              if (!app.infinity.mpvz.utils.storage.SelectedMediaFolders.contains(audioOptions.audioFolders, path) || !file.exists()) continue
-              val durationMs = cursor.getLong(durationColumn)
-              val title = cursor.getString(titleColumn) ?: file.nameWithoutExtension
-              val displayName = cursor.getString(displayColumn) ?: file.name
-              val folderPath = file.parent ?: ""
-              val folderName = file.parentFile?.name ?: ""
-              results +=
-                Video(
-                  id = path.hashCode().toLong(),
-                  title = title,
-                  displayName = displayName,
-                  path = path,
-                  uri = Uri.fromFile(file),
-                  duration = durationMs,
-                  durationFormatted = formatDuration(durationMs),
-                  size = cursor.getLong(sizeColumn),
-                  sizeFormatted = formatFileSize(cursor.getLong(sizeColumn)),
-                  dateModified = cursor.getLong(dateColumn),
-                  dateAdded = cursor.getLong(dateColumn),
-                  mimeType = FileTypeUtils.getMimeTypeFromExtension(file.extension.lowercase()),
-                  bucketId = folderPath,
-                  bucketDisplayName = folderName,
-                  width = 0,
-                  height = 0,
-                  fps = 0f,
-                  resolution = "",
-                  isAudio = true,
-                )
-            }
-          }
-      } catch (e: Exception) {
-        Log.e(TAG, "Error searching audio", e)
-      }
-      results
-    }
+  suspend fun searchAudio(context: Context, query: String, limit: Int = 50): List<Video> =
+    SelectedFolderLibrary.videos(context, true).filter { video ->
+      val entry = SelectedFolderLibrary.entry(context, video)
+      listOf(video.title, video.displayName, entry.artist, entry.album).any { it.contains(query.trim(), ignoreCase = true) }
+    }.take(limit)
 
-  private data class AudioFolderAggregate(
-    val path: String,
-    var size: Long = 0L,
-    var duration: Long = 0L,
-    var lastModified: Long = 0L,
-    var count: Int = 0,
-  )
+  fun scanNoMediaFoldersIncrementally(context: Context, forceDiscovery: Boolean = false): Flow<List<VideoFolder>> =
+    kotlinx.coroutines.flow.emptyFlow()
 
-  private fun normalizeAudioFolderKey(path: String): String =
-    path.replace('\\', '/').trimEnd('/').lowercase(Locale.ROOT)
-
-  private fun leafName(path: String): String =
-    path.replace('\\', '/').trimEnd('/').substringAfterLast('/')
-
-  fun scanNoMediaFoldersIncrementally(
-    context: Context,
-    forceDiscovery: Boolean = false,
-  ): Flow<List<VideoFolder>> =
-    FolderViewScanner.scanNoMediaFoldersIncrementally(
-      context = context,
-      options = currentScanOptions(),
-      dao = database.directoryScanDao(),
-      forceDiscovery = forceDiscovery,
-    )
-
-  /**
-   * No-op enrichment - MediaStore already provides all metadata
-   * Kept for backward compatibility
-   */
   suspend fun enrichVideoFolders(
     context: Context,
     folders: List<VideoFolder>,
@@ -359,20 +175,14 @@ object MediaFileRepository : KoinComponent {
     bucketId: String,
     forceFileSystemCheck: Boolean = false,
     includeAudioOverride: Boolean? = null,
-  ): List<Video> =
-    withContext(Dispatchers.IO) {
-      try {
-        VideoScanUtils.getVideosInFolder(
-          context,
-          bucketId,
-          currentScanOptions(includeAudioOverride),
-          forceFileSystemCheck,
-        )
-      } catch (e: Exception) {
-        Log.e(TAG, "Error getting videos for bucket $bucketId", e)
-        emptyList()
-      }
-    }
+  ): List<Video> {
+    if (forceFileSystemCheck) SelectedFolderLibrary.invalidate()
+    val video = SelectedFolderLibrary.videos(context, false, bucketId)
+    val audio = if (includeAudioOverride ?: browserPreferences.includeAudioBrowser.get())
+      SelectedFolderLibrary.videos(context, true, bucketId).filter { currentScanOptions(true).includesAudioDuration(it.duration) }
+      else emptyList()
+    return (video + audio).distinctBy { it.path }.sortedBy { it.displayName.lowercase() }
+  }
 
   /**
    * Gets videos from multiple folders
@@ -577,151 +387,37 @@ object MediaFileRepository : KoinComponent {
   /**
    * Gets the default root path for the filesystem browser
    */
-  fun getDefaultRootPath(): String = Environment.getExternalStorageDirectory().absolutePath
+  fun getDefaultRootPath(): String = "__STORAGE_ROOTS__"
 
-  /**
-   * Parses a path into breadcrumb components
-   */
-  fun getPathComponents(path: String): List<PathComponent> {
-    if (path.isBlank()) return emptyList()
+  fun getPathComponents(path: String): List<PathComponent> =
+    if (path.startsWith("content://")) listOf(PathComponent(SelectedFolderLibrary.displayName(path), path)) else emptyList()
 
-    val components = mutableListOf<PathComponent>()
-    val normalizedPath = path.trimEnd('/')
-    val parts = normalizedPath.split("/").filter { it.isNotEmpty() }
-
-    components.add(PathComponent("Root", "/"))
-
-    var currentPath = ""
-    for (part in parts) {
-      currentPath += "/$part"
-      components.add(PathComponent(part, currentPath))
-    }
-
-    return components
+  private suspend fun libraryDirectories(context: Context): List<SelectedFolderLibrary.Directory> {
+    val video = SelectedFolderLibrary.snapshot(context, false).directories
+    val audio = if (browserPreferences.includeAudioBrowser.get()) SelectedFolderLibrary.snapshot(context, true).directories else emptyList()
+    return (video + audio).distinctBy { it.uri }
   }
 
-  /**
-   * Scans a directory and returns its contents (folders and video files)
-   * OPTIMIZED: Uses UnifiedMediaScanner for fast, consistent results
-   * @param showAllFileTypes If true, shows all files. If false, shows only videos.
-   * @param useFastCount If true, uses fast shallow counting (immediate children only). If false, uses deep recursive counting.
-   */
-  suspend fun scanDirectory(
-    context: Context,
-    path: String,
-    showAllFileTypes: Boolean = false,
-    useFastCount: Boolean = false,
-    forceFileSystemCheck: Boolean = false,
-  ): Result<List<FileSystemItem>> =
-    withContext(Dispatchers.IO) {
-      try {
-        val directory = File(path)
+  private suspend fun folderItem(context: Context, folder: SelectedFolderLibrary.Directory): FileSystemItem.Folder {
+    val files = getVideosInFolder(context, folder.uri)
+    return FileSystemItem.Folder(name = folder.name, path = folder.uri, lastModified = files.maxOfOrNull { it.dateModified } ?: 0,
+      videoCount = files.size, totalSize = files.sumOf { it.size }, totalDuration = files.sumOf { it.duration }, hasSubfolders = true)
+  }
 
-        // Validation checks
-        if (!directory.exists()) {
-          return@withContext Result.failure(Exception("Directory does not exist: $path"))
-        }
-
-        if (!directory.canRead()) {
-          return@withContext Result.failure(Exception("Cannot read directory: $path"))
-        }
-
-        if (!directory.isDirectory) {
-          return@withContext Result.failure(Exception("Path is not a directory: $path"))
-        }
-
-        val items = mutableListOf<FileSystemItem>()
-
-        // A leaf directory cannot contain child folders, so avoid rebuilding the complete
-        // recursive tree just to discover an empty folder list. This keeps video-only folders
-        // responsive even when the storage volume contains a large media tree.
-        val scanOptions = currentScanOptions()
-        val hasDirectSubdirectories = !scanOptions.allowsDirectory(directory) ||
-          directory.listFiles()?.any { it.isDirectory } == true
-        val folders =
-          if (!hasDirectSubdirectories) {
-            emptyList()
-          } else {
-            val (showNewLabels, thresholdDays, playedMediaTitles) = getTreeViewNewBadgeParams()
-            TreeViewScanner.getFoldersInDirectory(
-              context = context,
-              parentPath = path,
-              options = scanOptions,
-              forceFileSystemCheck = forceFileSystemCheck,
-              playedMediaTitles = playedMediaTitles,
-              showNewLabels = showNewLabels,
-              thresholdDays = thresholdDays,
-              maxAutoFlattenLevels = browserPreferences.treeFlattenDepth.get().maxLevels,
-            )
-          }
-        folders.forEach { folderData ->
-          items.add(
-            FileSystemItem.Folder(
-              name = folderData.name,
-              path = folderData.path,
-              lastModified = File(folderData.path).lastModified(),
-              videoCount = folderData.videoCount,
-              totalSize = folderData.totalSize,
-              totalDuration = folderData.totalDuration,
-              hasSubfolders = folderData.hasSubfolders,
-              newCount = folderData.newCount,
-            ),
-          )
-        }
-
-        // Get videos in current directory
-        val videos = VideoScanUtils.getVideosInFolder(context, path, scanOptions, forceFileSystemCheck)
-        videos.forEach { video ->
-          items.add(
-            FileSystemItem.VideoFile(
-              name = video.displayName,
-              path = video.path,
-              lastModified = File(video.path).lastModified(),
-              video = video,
-            ),
-          )
-        }
-
-        Result.success(items)
-      } catch (e: SecurityException) {
-        Log.e(TAG, "Security exception scanning directory: $path", e)
-        Result.failure(Exception("Permission denied: ${e.message}"))
-      } catch (e: Exception) {
-        Log.e(TAG, "Error scanning directory: $path", e)
-        Result.failure(e)
-      }
+  suspend fun scanDirectory(context: Context, path: String, showAllFileTypes: Boolean = false,
+    useFastCount: Boolean = false, forceFileSystemCheck: Boolean = false): Result<List<FileSystemItem>> = withContext(Dispatchers.IO) {
+    if (forceFileSystemCheck) SelectedFolderLibrary.invalidate()
+    val folders = libraryDirectories(context).filter { it.parent == path }.map { folderItem(context, it) }
+    val videos = getVideosInFolder(context, path).map { video ->
+      FileSystemItem.VideoFile(name = video.displayName, path = video.path, lastModified = video.dateModified, video = video)
     }
+    Result.success(folders + videos)
+  }
 
-  /**
-   * Gets all storage volume roots with recursive video counts
-   */
-  suspend fun getStorageRoots(
-    context: Context,
-    forceFileSystemCheck: Boolean = false,
-  ): List<FileSystemItem.Folder> =
-    withContext(Dispatchers.IO) {
-      val options = currentScanOptions()
-      if (options.selectedRoots.isEmpty()) return@withContext emptyList()
-      val (showNewLabels, thresholdDays, playedMediaTitles) = getTreeViewNewBadgeParams()
-      options.selectedRoots.sorted().mapNotNull { path ->
-        val directory = File(path)
-        if (!directory.isDirectory || !directory.canRead()) return@mapNotNull null
-        val data = TreeViewScanner.getFolderDataRecursive(
-          context, path, options, forceFileSystemCheck, playedMediaTitles, showNewLabels, thresholdDays,
-        )
-        FileSystemItem.Folder(
-          name = directory.name.ifEmpty { path },
-          path = path,
-          lastModified = directory.lastModified(),
-          videoCount = data?.videoCount ?: 0,
-          totalSize = data?.totalSize ?: 0L,
-          totalDuration = data?.totalDuration ?: 0L,
-          hasSubfolders = true,
-          newCount = data?.newCount ?: 0,
-        )
-      }
-    }
-
+  suspend fun getStorageRoots(context: Context, forceFileSystemCheck: Boolean = false): List<FileSystemItem.Folder> {
+    if (forceFileSystemCheck) SelectedFolderLibrary.invalidate()
+    return libraryDirectories(context).filter { it.parent == null }.map { folderItem(context, it) }
+  }
 
   private fun formatDuration(durationMs: Long): String {
     if (durationMs <= 0) return "0s"

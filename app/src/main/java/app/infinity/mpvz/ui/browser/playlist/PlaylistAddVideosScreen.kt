@@ -13,6 +13,7 @@ import android.app.Application
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -202,7 +203,7 @@ data class PlaylistAddVideosScreen(
       bottomBar = {
         val selectedCount = selectionManager?.selectedCount ?: 0
         if (selectedCount > 0) {
-          Surface(tonalElevation = 3.dp) {
+          Surface(modifier = Modifier.navigationBarsPadding(), tonalElevation = 3.dp) {
             Button(
               onClick = { addSelectedToPlaylist() },
               modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -230,6 +231,7 @@ data class PlaylistAddVideosScreen(
             ) { videoFolder ->
               FolderCard(
                 folder = videoFolder,
+                isAudioOnly = isAudio,
                 onClick = { selectedFolder = videoFolder },
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
               )

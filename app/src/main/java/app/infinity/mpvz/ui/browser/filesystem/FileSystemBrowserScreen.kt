@@ -332,16 +332,11 @@ fun FileSystemBrowserScreen(path: String? = null) {
 
   // Permissions
   val permissionState =
-    PermissionUtils.handleStoragePermission(
+    app.infinity.mpvz.ui.browser.rememberLibraryPermissionState(
       onPermissionGranted = { viewModel.refresh() },
     )
 
-  var isPermissionSetupCompleted by androidx.compose.runtime.saveable.rememberSaveable {
-    androidx.compose.runtime.mutableStateOf(
-      permissionState.status == com.google.accompanist.permissions.PermissionStatus.Granted ||
-        browserPreferences.onboardingCompleted.get(),
-    )
-  }
+  val isPermissionSetupCompleted = true
 
   // Combined MainScreen updates for better performance and responsiveness
   LaunchedEffect(
@@ -592,9 +587,8 @@ fun FileSystemBrowserScreen(path: String? = null) {
             onSearchClick = {
               isSearching = !isSearching
             },
-            onSettingsClick = {
-              backstack.add(app.infinity.mpvz.ui.preferences.PreferencesScreen)
-            },
+            additionalActions = { if (!isInSelectionMode) app.infinity.mpvz.ui.browser.LibraryMenu() },
+            onSettingsClick = null,
             isSingleSelection = selectionManager.isSingleSelection,
             onInfoClick =
               if (selectedVideos.size == 1 && selectedFolders.isEmpty()) {
@@ -876,19 +870,8 @@ fun FileSystemBrowserScreen(path: String? = null) {
                 isInSelectionMode = isInSelectionMode,
               )
             }
-        } else if (isPermissionSetupCompleted) {
-          app.infinity.mpvz.ui.browser.states.StoragePermissionPrompt(
-            onRequestPermission = { permissionState.launchPermissionRequest() },
-          )
         } else {
-          PermissionDeniedState(
-            onRequestPermission = { permissionState.launchPermissionRequest() },
-            onNext = {
-              isPermissionSetupCompleted = true
-              viewModel.refresh()
-            },
-            modifier = Modifier,
-          )
+          app.infinity.mpvz.ui.browser.LibraryFolderEmptyState(onChoose = { permissionState.launchPermissionRequest() })
         }
 
         FabScrollHelper.FabScrim(

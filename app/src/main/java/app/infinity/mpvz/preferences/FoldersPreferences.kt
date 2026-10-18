@@ -23,6 +23,10 @@ enum class BlacklistScope {
 class FoldersPreferences(
   preferenceStore: PreferenceStore,
 ) {
+  val selectedVideoTrees = preferenceStore.getStringSet("selected_video_trees", emptySet())
+  val selectedAudioTrees = preferenceStore.getStringSet("selected_audio_trees", emptySet())
+  val libraryOwnedTreeGrants = preferenceStore.getStringSet("library_owned_tree_grants", emptySet())
+
   val selectedVideoFolders = preferenceStore.getStringSet("selected_video_folders", emptySet())
   val selectedAudioFolders = preferenceStore.getStringSet("selected_audio_folders", emptySet())
 

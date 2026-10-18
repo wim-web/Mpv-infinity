@@ -506,16 +506,12 @@ object FolderListScreen : Screen {
 
     // Permissions
     val permissionState =
-      PermissionUtils.handleStoragePermission(
+      app.infinity.mpvz.ui.browser.rememberLibraryPermissionState(
         audioOnly = audioOnly,
         onPermissionGranted = { viewModel.refresh() },
       )
 
-    var isPermissionSetupCompleted by androidx.compose.runtime.saveable.rememberSaveable {
-      androidx.compose.runtime.mutableStateOf(
-        permissionState.status == PermissionStatus.Granted || browserPreferences.onboardingCompleted.get(),
-      )
-    }
+    val isPermissionSetupCompleted = true
 
     // After onboarding the app is fully usable; missing storage only shows an in-place prompt.
     LaunchedEffect(permissionState.status, isPermissionSetupCompleted) {
@@ -645,9 +641,8 @@ object FolderListScreen : Screen {
                 internalIsSearching = !internalIsSearching
                 if (!internalIsSearching) internalSearchQuery = ""
               },
-              onSettingsClick = {
-                backstack.add(app.infinity.mpvz.ui.preferences.PreferencesScreen)
-              },
+              onSettingsClick = null,
+              additionalActions = { if (!selectionManager.isInSelectionMode) app.infinity.mpvz.ui.browser.LibraryMenu() },
               onTitleDoubleTap = { backstack.add(SecureFolderGateScreen) },
               onTitleLongPress = { backstack.add(SecureFolderGateScreen) },
               showBetaBadge = BuildConfig.IS_PREVIEW_BUILD,
@@ -991,19 +986,8 @@ object FolderListScreen : Screen {
                   } else null,
                 )
               }
-          } else if (isPermissionSetupCompleted) {
-            app.infinity.mpvz.ui.browser.states.StoragePermissionPrompt(
-              onRequestPermission = { permissionState.launchPermissionRequest() },
-            )
           } else {
-            PermissionDeniedState(
-              onRequestPermission = { permissionState.launchPermissionRequest() },
-              onNext = {
-                isPermissionSetupCompleted = true
-                viewModel.refresh()
-              },
-              modifier = Modifier,
-            )
+            app.infinity.mpvz.ui.browser.LibraryFolderEmptyState(onChoose = { permissionState.launchPermissionRequest() })
           }
 
           BrowserBottomBar(
