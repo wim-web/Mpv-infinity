@@ -389,105 +389,109 @@ fun MediaLibraryContent(forceAudio: Boolean = false) {
 
   Scaffold(
     topBar = {
-      if (isSearching) {
-        InlineSearchBar(
-          query = searchQuery,
-          onQueryChange = { searchQuery = it },
-          onSearch = { },
-          modifier =
-            Modifier
-              .fillMaxWidth()
-              .padding(horizontal = 16.dp, vertical = 8.dp),
-          inputFieldModifier = Modifier.focusRequester(focusRequester),
-          placeholder = {
-            Text(
-              if (mediaType ==
-                MediaLibraryType.Audio
-              ) {
-                androidx.compose.ui.res
-                  .stringResource(app.infinity.mpvz.R.string.ui_search_audio)
-              } else {
-                androidx.compose.ui.res
-                  .stringResource(app.infinity.mpvz.R.string.ui_search_videos)
-              },
-            )
-          },
-          leadingIcon = {
-            Icon(
-              imageVector = Icons.RoundedFilled.Search,
-              contentDescription =
-                androidx.compose.ui.res.stringResource(
-                  app.infinity.mpvz.R.string.settings_search_title,
-                ),
-            )
-          },
-          trailingIcon = {
-            IconButton(
-              onClick = {
-                isSearching = false
-                searchQuery = ""
-              },
-            ) {
+      app.infinity.mpvz.ui.browser.components.LibraryHeaderColumn {
+        if (isSearching) {
+          InlineSearchBar(
+            query = searchQuery,
+            onQueryChange = { searchQuery = it },
+            onSearch = { },
+            modifier =
+              Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            inputFieldModifier = Modifier.focusRequester(focusRequester),
+            placeholder = {
+              Text(
+                if (mediaType ==
+                  MediaLibraryType.Audio
+                ) {
+                  androidx.compose.ui.res
+                    .stringResource(app.infinity.mpvz.R.string.ui_search_audio)
+                } else {
+                  androidx.compose.ui.res
+                    .stringResource(app.infinity.mpvz.R.string.ui_search_videos)
+                },
+              )
+            },
+            leadingIcon = {
               Icon(
-                imageVector = Icons.RoundedFilled.Close,
+                imageVector = Icons.RoundedFilled.Search,
                 contentDescription =
                   androidx.compose.ui.res.stringResource(
-                    app.infinity.mpvz.R.string.generic_cancel,
+                    app.infinity.mpvz.R.string.settings_search_title,
                   ),
               )
-            }
-          },
-        )
-      } else {
-        BrowserTopBar(
-          title =
-            if (forceAudio) {
-              androidx.compose.ui.res.stringResource(app.infinity.mpvz.R.string.ui_music)
-            } else {
-              androidx.compose.ui.res
-                .stringResource(app.infinity.mpvz.R.string.pref_media_library_section)
             },
-          isInSelectionMode = selectionManager.isInSelectionMode,
-          selectedCount = selectionManager.selectedCount,
-          totalCount = filteredVideosWithInfo.size,
-          onBackClick = null,
-          onCancelSelection = { selectionManager.clear() },
-          onSortClick = { sortDialogOpen.value = true },
-          onSearchClick = { isSearching = true },
-          onSettingsClick = {
-            backstack.add(app.infinity.mpvz.ui.preferences.PreferencesScreen)
-          },
-          onTitleDoubleTap = { backstack.add(SecureFolderGateScreen) },
-          onTitleLongPress = { backstack.add(SecureFolderGateScreen) },
-          isSingleSelection = selectionManager.isSingleSelection,
-          onInfoClick = {
-            if (selectionManager.isSingleSelection) {
-              val video = selectionManager.getSelectedItems().firstOrNull()
-              if (video != null) {
-                val intent = Intent(context, app.infinity.mpvz.ui.mediainfo.MediaInfoActivity::class.java)
-                intent.action = Intent.ACTION_VIEW
-                intent.data = video.uri
-                context.startActivity(intent)
-                selectionManager.clear()
+            trailingIcon = {
+              IconButton(
+                onClick = {
+                  isSearching = false
+                  searchQuery = ""
+                },
+              ) {
+                Icon(
+                  imageVector = Icons.RoundedFilled.Close,
+                  contentDescription =
+                    androidx.compose.ui.res.stringResource(
+                      app.infinity.mpvz.R.string.generic_cancel,
+                    ),
+                )
               }
-            }
-          },
-          onShareClick = { selectionManager.shareSelected() },
-          onPlayClick = { selectionManager.playSelected() },
-          onSelectAll = { selectionManager.selectAll() },
-          onInvertSelection = { selectionManager.invertSelection() },
-          onDeselectAll = { selectionManager.clear() },
-          onMoveToSecureClick = {
-            if (!secureFolderPreferences.isPinSet()) {
-              backstack.add(SecureFolderGateScreen)
-            } else if (secureFolderPreferences.dontAskBeforeMove.get()) {
-              moveSelectedToSecureFolder()
-            } else {
-              moveToSecureConfirmOpen.value = true
-            }
-          },
-          onAddToPlaylistClick = { addToPlaylistDialogOpen.value = true },
-        )
+            },
+          )
+        } else {
+          BrowserTopBar(
+              useVideoLibraryHeader = app.infinity.mpvz.ui.browser.LocalVideoLibraryNavigation.current != null,
+            title =
+              if (forceAudio) {
+                androidx.compose.ui.res.stringResource(app.infinity.mpvz.R.string.ui_music)
+              } else {
+                androidx.compose.ui.res
+                  .stringResource(app.infinity.mpvz.R.string.pref_media_library_section)
+              },
+            isInSelectionMode = selectionManager.isInSelectionMode,
+            selectedCount = selectionManager.selectedCount,
+            totalCount = filteredVideosWithInfo.size,
+            onBackClick = null,
+            onCancelSelection = { selectionManager.clear() },
+            onSortClick = { sortDialogOpen.value = true },
+            onSearchClick = { isSearching = true },
+            onSettingsClick = {
+              backstack.add(app.infinity.mpvz.ui.preferences.PreferencesScreen)
+            },
+            onTitleDoubleTap = { backstack.add(SecureFolderGateScreen) },
+            onTitleLongPress = { backstack.add(SecureFolderGateScreen) },
+            isSingleSelection = selectionManager.isSingleSelection,
+            onInfoClick = {
+              if (selectionManager.isSingleSelection) {
+                val video = selectionManager.getSelectedItems().firstOrNull()
+                if (video != null) {
+                  val intent = Intent(context, app.infinity.mpvz.ui.mediainfo.MediaInfoActivity::class.java)
+                  intent.action = Intent.ACTION_VIEW
+                  intent.data = video.uri
+                  context.startActivity(intent)
+                  selectionManager.clear()
+                }
+              }
+            },
+            onShareClick = { selectionManager.shareSelected() },
+            onPlayClick = { selectionManager.playSelected() },
+            onSelectAll = { selectionManager.selectAll() },
+            onInvertSelection = { selectionManager.invertSelection() },
+            onDeselectAll = { selectionManager.clear() },
+            onMoveToSecureClick = {
+              if (!secureFolderPreferences.isPinSet()) {
+                backstack.add(SecureFolderGateScreen)
+              } else if (secureFolderPreferences.dontAskBeforeMove.get()) {
+                moveSelectedToSecureFolder()
+              } else {
+                moveToSecureConfirmOpen.value = true
+              }
+            },
+            onAddToPlaylistClick = { addToPlaylistDialogOpen.value = true },
+          )
+        }
+        if (!isSearching && !selectionManager.isInSelectionMode) app.infinity.mpvz.ui.browser.VideoLibraryTabs()
       }
     },
     floatingActionButton = {

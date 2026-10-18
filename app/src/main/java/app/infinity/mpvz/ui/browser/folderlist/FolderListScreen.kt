@@ -582,147 +582,151 @@ object FolderListScreen : Screen {
       Scaffold(
         contentWindowInsets = if (embedded) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
         topBar = {
-          if (embedded) {
-            // Embedded inside another screen (e.g. Music tab) which already renders its own top bar.
-          } else if (internalIsSearching) {
-            InlineSearchBar(
-              query = internalSearchQuery,
-              onQueryChange = { internalSearchQuery = it },
-              onSearch = { },
-              modifier =
-                Modifier
-                  .fillMaxWidth()
-                  .padding(horizontal = 16.dp),
-              inputFieldModifier = Modifier.focusRequester(focusRequester),
-              placeholder = {
-                Text(
-                  if (audiobookMode) "Search audiobook folders and files"
-                  else stringResource(app.infinity.mpvz.R.string.ui_search_folders_and_videos),
-                )
-              },
-              leadingIcon = {
-                Icon(
-                  imageVector = Icons.RoundedFilled.Search,
-                  contentDescription =
-                    androidx.compose.ui.res.stringResource(
-                      app.infinity.mpvz.R.string.settings_search_title,
-                    ),
-                )
-              },
-              trailingIcon = {
-                IconButton(
-                  onClick = {
-                    internalIsSearching = false
-                    internalSearchQuery = ""
-                  },
-                ) {
+          app.infinity.mpvz.ui.browser.components.LibraryHeaderColumn {
+            if (embedded) {
+              // Embedded inside another screen (e.g. Music tab) which already renders its own top bar.
+            } else if (internalIsSearching) {
+              InlineSearchBar(
+                query = internalSearchQuery,
+                onQueryChange = { internalSearchQuery = it },
+                onSearch = { },
+                modifier =
+                  Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                inputFieldModifier = Modifier.focusRequester(focusRequester),
+                placeholder = {
+                  Text(
+                    if (audiobookMode) "Search audiobook folders and files"
+                    else stringResource(app.infinity.mpvz.R.string.ui_search_folders_and_videos),
+                  )
+                },
+                leadingIcon = {
                   Icon(
-                    imageVector = Icons.RoundedFilled.Close,
+                    imageVector = Icons.RoundedFilled.Search,
                     contentDescription =
                       androidx.compose.ui.res.stringResource(
-                        app.infinity.mpvz.R.string.generic_cancel,
+                        app.infinity.mpvz.R.string.settings_search_title,
                       ),
                   )
-                }
-              },
-              shape = RoundedCornerShape(28.dp),
-              tonalElevation = 6.dp,
-            )
-          } else {
-            BrowserTopBar(
-              title = if (audiobookMode) "Audiobooks" else stringResource(app.infinity.mpvz.R.string.app_name),
-              isInSelectionMode = selectionManager.isInSelectionMode,
-              selectedCount = selectionManager.selectedCount,
-              totalCount = videoFolders.size,
-              onBackClick = null,
-              onCancelSelection = { selectionManager.clear() },
-              onSortClick = { sortDialogOpen.value = true },
-              onSearchClick = {
-                internalIsSearching = !internalIsSearching
-                if (!internalIsSearching) internalSearchQuery = ""
-              },
-              onSettingsClick = null,
-              additionalActions = { if (!selectionManager.isInSelectionMode) app.infinity.mpvz.ui.browser.LibraryMenu() },
-              onTitleDoubleTap = { backstack.add(SecureFolderGateScreen) },
-              onTitleLongPress = { backstack.add(SecureFolderGateScreen) },
-              showBetaBadge = BuildConfig.IS_PREVIEW_BUILD,
-              onRenameClick = null,
-              isSingleSelection = selectionManager.isSingleSelection,
-              onInfoClick = null,
-              onShareClick = {
-                coroutineScope.launch {
-                  val selectedIds = selectionManager.getSelectedItems().map { it.bucketId }.toSet()
-                  val allVideos =
-                    app.infinity.mpvz.repository.MediaFileRepository
-                      .getVideosForBuckets(context, selectedIds, includeAudioOverride = if (audioOnly) true else null)
-                  if (allVideos.isNotEmpty()) {
-                    MediaUtils.shareVideos(context, allVideos)
+                },
+                trailingIcon = {
+                  IconButton(
+                    onClick = {
+                      internalIsSearching = false
+                      internalSearchQuery = ""
+                    },
+                  ) {
+                    Icon(
+                      imageVector = Icons.RoundedFilled.Close,
+                      contentDescription =
+                        androidx.compose.ui.res.stringResource(
+                          app.infinity.mpvz.R.string.generic_cancel,
+                        ),
+                    )
                   }
-                }
-              },
-              onPlayClick = {
-                coroutineScope.launch {
-                  val selectedIds = selectionManager.getSelectedItems().map { it.bucketId }.toSet()
-                  val allVideos =
-                    app.infinity.mpvz.repository.MediaFileRepository
-                      .getVideosForBuckets(context, selectedIds, includeAudioOverride = if (audioOnly) true else null)
-                  if (allVideos.isNotEmpty()) {
-                    if (allVideos.size == 1) {
-                      MediaUtils.playFile(allVideos.first(), context)
-                    } else {
-                      MediaUtils.playFiles(allVideos, context)
+                },
+                shape = RoundedCornerShape(28.dp),
+                tonalElevation = 6.dp,
+              )
+            } else {
+              BrowserTopBar(
+              useVideoLibraryHeader = app.infinity.mpvz.ui.browser.LocalVideoLibraryNavigation.current != null,
+                title = if (audiobookMode) "Audiobooks" else stringResource(if (app.infinity.mpvz.ui.browser.LocalVideoLibraryNavigation.current != null) app.infinity.mpvz.R.string.ui_videos else app.infinity.mpvz.R.string.app_name),
+                isInSelectionMode = selectionManager.isInSelectionMode,
+                selectedCount = selectionManager.selectedCount,
+                totalCount = videoFolders.size,
+                onBackClick = null,
+                onCancelSelection = { selectionManager.clear() },
+                onSortClick = { sortDialogOpen.value = true },
+                onSearchClick = {
+                  internalIsSearching = !internalIsSearching
+                  if (!internalIsSearching) internalSearchQuery = ""
+                },
+                onSettingsClick = null,
+                additionalActions = { if (!selectionManager.isInSelectionMode) app.infinity.mpvz.ui.browser.LibraryMenu() },
+                onTitleDoubleTap = { backstack.add(SecureFolderGateScreen) },
+                onTitleLongPress = { backstack.add(SecureFolderGateScreen) },
+                showBetaBadge = BuildConfig.IS_PREVIEW_BUILD,
+                onRenameClick = null,
+                isSingleSelection = selectionManager.isSingleSelection,
+                onInfoClick = null,
+                onShareClick = {
+                  coroutineScope.launch {
+                    val selectedIds = selectionManager.getSelectedItems().map { it.bucketId }.toSet()
+                    val allVideos =
+                      app.infinity.mpvz.repository.MediaFileRepository
+                        .getVideosForBuckets(context, selectedIds, includeAudioOverride = if (audioOnly) true else null)
+                    if (allVideos.isNotEmpty()) {
+                      MediaUtils.shareVideos(context, allVideos)
                     }
+                  }
+                },
+                onPlayClick = {
+                  coroutineScope.launch {
+                    val selectedIds = selectionManager.getSelectedItems().map { it.bucketId }.toSet()
+                    val allVideos =
+                      app.infinity.mpvz.repository.MediaFileRepository
+                        .getVideosForBuckets(context, selectedIds, includeAudioOverride = if (audioOnly) true else null)
+                    if (allVideos.isNotEmpty()) {
+                      if (allVideos.size == 1) {
+                        MediaUtils.playFile(allVideos.first(), context)
+                      } else {
+                        MediaUtils.playFiles(allVideos, context)
+                      }
+                      selectionManager.clear()
+                    }
+                  }
+                },
+                onPinClick = {
+                  coroutineScope.launch {
+                    val selectedFolders = selectionManager.getSelectedItems()
+                    if (selectedFolders.isEmpty()) return@launch
+                    val updated = foldersPreferences.pinnedFolders.get().toMutableSet()
+                    val shouldUnpinAll = selectedFolders.all { it.path in updated }
+                    selectedFolders.forEach { folder ->
+                      if (shouldUnpinAll) {
+                        updated.remove(folder.path)
+                      } else {
+                        updated.add(folder.path)
+                      }
+                    }
+                    foldersPreferences.pinnedFolders.set(updated)
                     selectionManager.clear()
                   }
-                }
-              },
-              onPinClick = {
-                coroutineScope.launch {
-                  val selectedFolders = selectionManager.getSelectedItems()
-                  if (selectedFolders.isEmpty()) return@launch
-                  val updated = foldersPreferences.pinnedFolders.get().toMutableSet()
-                  val shouldUnpinAll = selectedFolders.all { it.path in updated }
-                  selectedFolders.forEach { folder ->
-                    if (shouldUnpinAll) {
-                      updated.remove(folder.path)
-                    } else {
-                      updated.add(folder.path)
-                    }
+                },
+                onBlacklistClick = {
+                  coroutineScope.launch {
+                    val selectedFolders = selectionManager.getSelectedItems()
+                    val paths = selectedFolders.map { it.path }.toSet()
+                    val scope = if (audioOnly) app.infinity.mpvz.preferences.BlacklistScope.AUDIO_ONLY else app.infinity.mpvz.preferences.BlacklistScope.VIDEO_ONLY
+                    foldersPreferences.addBlacklistedFolders(paths, scope)
+                    selectionManager.clear()
+                    viewModel.refresh()
+                    android.widget.Toast
+                      .makeText(
+                        context,
+                        foldersBlacklistedMessage,
+                        android.widget.Toast.LENGTH_SHORT,
+                      ).show()
                   }
-                  foldersPreferences.pinnedFolders.set(updated)
-                  selectionManager.clear()
-                }
-              },
-              onBlacklistClick = {
-                coroutineScope.launch {
-                  val selectedFolders = selectionManager.getSelectedItems()
-                  val paths = selectedFolders.map { it.path }.toSet()
-                  val scope = if (audioOnly) app.infinity.mpvz.preferences.BlacklistScope.AUDIO_ONLY else app.infinity.mpvz.preferences.BlacklistScope.VIDEO_ONLY
-                  foldersPreferences.addBlacklistedFolders(paths, scope)
-                  selectionManager.clear()
-                  viewModel.refresh()
-                  android.widget.Toast
-                    .makeText(
-                      context,
-                      foldersBlacklistedMessage,
-                      android.widget.Toast.LENGTH_SHORT,
-                    ).show()
-                }
-              },
-              onDeleteClick = null,
-              onSelectAll = { selectionManager.selectAll() },
-              onInvertSelection = { selectionManager.invertSelection() },
-              onDeselectAll = { selectionManager.clear() },
-              onMoveToSecureClick = {
-                if (!secureFolderPreferences.isPinSet()) {
-                  backstack.add(SecureFolderGateScreen)
-                } else if (secureFolderPreferences.dontAskBeforeMove.get()) {
-                  moveSelectedFoldersToSecureFolder()
-                } else {
-                  moveToSecureConfirmOpen.value = true
-                }
-              },
-            )
+                },
+                onDeleteClick = null,
+                onSelectAll = { selectionManager.selectAll() },
+                onInvertSelection = { selectionManager.invertSelection() },
+                onDeselectAll = { selectionManager.clear() },
+                onMoveToSecureClick = {
+                  if (!secureFolderPreferences.isPinSet()) {
+                    backstack.add(SecureFolderGateScreen)
+                  } else if (secureFolderPreferences.dontAskBeforeMove.get()) {
+                    moveSelectedFoldersToSecureFolder()
+                  } else {
+                    moveToSecureConfirmOpen.value = true
+                  }
+                },
+              )
+            }
+            if (!embedded && !internalIsSearching && !selectionManager.isInSelectionMode) app.infinity.mpvz.ui.browser.VideoLibraryTabs()
           }
         },
         floatingActionButton = {

@@ -108,17 +108,13 @@ class PlaylistViewModel(
       return items.size
     }
 
-    // For regular playlists, check if files still exist
-    val bucketIds =
-      items
-        .map { item ->
-          File(item.filePath).parent ?: ""
-        }.toSet()
-
-    val allVideos = MediaFileRepository.getVideosForBuckets(getApplication(), bucketIds, includeAudioOverride = true)
-
+    val library = MediaFileRepository.getAllVideos(getApplication(), includeAudioOverride = true)
+    val paths = library.map { it.path }.toSet()
+    val documents = library.mapNotNull { app.infinity.mpvz.utils.storage.SelectedFolderLibrary.documentKey(it.path) }.toSet()
+    val legacyPaths = library.mapNotNull { app.infinity.mpvz.utils.storage.SelectedFolderLibrary.legacyPath(it.uri) }.toSet()
     return items.count { item ->
-      allVideos.any { video -> video.path == item.filePath }
+      item.filePath in paths || item.filePath.removePrefix("file://") in legacyPaths ||
+        app.infinity.mpvz.utils.storage.SelectedFolderLibrary.documentKey(item.filePath)?.let { it in documents } == true
     }
   }
 

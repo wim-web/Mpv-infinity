@@ -175,8 +175,6 @@ object MainScreen : Screen {
     val mediaServerPreferences = koinInject<MediaServerPreferences>()
     val showHomeTab by appearancePreferences.showHomeTab.collectAsState()
     val showMusicTab by appearancePreferences.showMusicTab.collectAsState()
-    val showRecentsTab by appearancePreferences.showRecentsTab.collectAsState()
-    val showPlaylistsTab by appearancePreferences.showPlaylistsTab.collectAsState()
     val showNetworkTab by appearancePreferences.showNetworkTab.collectAsState()
     val showStreamsTab by appearancePreferences.showStreamsTab.collectAsState()
     val showJellyfinTab by appearancePreferences.showJellyfinTab.collectAsState()
@@ -192,8 +190,6 @@ object MainScreen : Screen {
       remember(
         showHomeTab,
         showMusicTab,
-        showRecentsTab,
-        showPlaylistsTab,
         showNetworkTab,
         showStreamsTab,
         showJellyfinTab,
@@ -203,8 +199,6 @@ object MainScreen : Screen {
         buildList {
           if (showHomeTab) add(MainTab.HOME)
           if (showMusicTab) add(MainTab.MUSIC)
-          if (showRecentsTab) add(MainTab.RECENTS)
-          if (showPlaylistsTab) add(MainTab.PLAYLISTS)
           if (showNetworkTab) add(MainTab.NETWORK)
           if (showStreamsTab) add(MainTab.STREAMS)
           if (showJellyfinTab) add(MainTab.JELLYFIN)
@@ -414,7 +408,7 @@ object MainScreen : Screen {
             LocalNavigationBarHeight provides contentBottomPadding,
             LocalMainNavigationBar provides mainNavBar,
           ) {
-            FolderListScreen.Content()
+            VideoLibraryContent()
           }
         } else {
           CompositionLocalProvider(
@@ -430,7 +424,7 @@ object MainScreen : Screen {
             ) { page ->
               val tab = visibleTabs.getOrNull(page) ?: return@HorizontalPager
               when (tab) {
-                MainTab.HOME -> FolderListScreen.Content()
+                MainTab.HOME -> VideoLibraryContent()
                 MainTab.MUSIC -> when (musicSourceProvider) {
                   MusicSourceProvider.LOCAL -> MusicLibraryContent()
                   MusicSourceProvider.JELLYFIN ->
@@ -569,7 +563,7 @@ object MainScreen : Screen {
 }
 
 @Composable
-private fun ExpressivePillNavigationBar(
+internal fun ExpressivePillNavigationBar(
   visibleTabs: List<MainScreen.MainTab>,
   selectedTab: MainScreen.MainTab,
   onTabSelected: (MainScreen.MainTab) -> Unit,
@@ -718,8 +712,8 @@ private fun ExpressivePillNavigationBar(
               when (tab) {
                 MainScreen.MainTab.HOME ->
                   Icon(
-                    Icons.RoundedFilled.Home,
-                    contentDescription = stringResource(R.string.ui_home),
+                    Icons.RoundedFilled.VideoLibrary,
+                    contentDescription = "video",
                     tint = contentColor,
                     modifier = Modifier.size(22.dp),
                   )
@@ -786,7 +780,7 @@ private fun ExpressivePillNavigationBar(
                 Text(
                   text =
                     when (tab) {
-                      MainScreen.MainTab.HOME -> stringResource(R.string.ui_home)
+                      MainScreen.MainTab.HOME -> "video"
                       MainScreen.MainTab.MUSIC -> stringResource(R.string.ui_music)
                       MainScreen.MainTab.RECENTS -> stringResource(R.string.ui_recents)
                       MainScreen.MainTab.PLAYLISTS -> stringResource(R.string.ui_playlists)

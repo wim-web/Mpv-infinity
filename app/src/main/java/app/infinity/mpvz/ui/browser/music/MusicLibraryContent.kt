@@ -450,13 +450,7 @@ fun MusicLibraryContent(
   Scaffold(
     modifier = modifier.fillMaxSize(),
     topBar = {
-      Column(
-        modifier = Modifier
-          .fillMaxWidth()
-          .background(
-            if (MaterialTheme.colorScheme.background == Color.Black) Color.Black else MaterialTheme.colorScheme.surfaceContainer
-          )
-      ) {
+      app.infinity.mpvz.ui.browser.components.LibraryHeaderColumn {
         if (isSearchActive) {
           InlineSearchBar(
             query = searchQuery,
@@ -615,38 +609,16 @@ fun MusicLibraryContent(
           )
         }
 
-        PrimaryScrollableTabRow(
-          selectedTabIndex = pagerState.currentPage.coerceIn(0, (visibleTabs.size - 1).coerceAtLeast(0)),
-          containerColor = Color.Transparent,
-          contentColor = MaterialTheme.colorScheme.onSurface,
-          edgePadding = 8.dp,
-          divider = {}
-        ) {
-          visibleTabs.forEachIndexed { index, tab ->
-            Tab(
-              selected = pagerState.currentPage == index,
-              onClick = {
-                scope.launch {
-                  musicViewModel.setTab(tab)
-                  pagerState.animateScrollToPage(index)
-                }
-              },
-              text = {
-                Text(
-                  text = tab.title,
-                  style = MaterialTheme.typography.titleMedium,
-                  fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Medium,
-                  maxLines = 1,
-                  softWrap = false,
-                  overflow = TextOverflow.Ellipsis
-                )
-              },
-              selectedContentColor = MaterialTheme.colorScheme.onSurface,
-              unselectedContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-            )
-          }
-        }
-        HorizontalDivider()
+        app.infinity.mpvz.ui.browser.components.LibraryTabs(
+          titles = visibleTabs.map { it.title },
+          selectedIndex = pagerState.currentPage.coerceIn(0, (visibleTabs.size - 1).coerceAtLeast(0)),
+          onSelect = { index ->
+            scope.launch {
+              musicViewModel.setTab(visibleTabs[index])
+              pagerState.animateScrollToPage(index)
+            }
+          },
+        )
       }
     },
     floatingActionButton = {
@@ -658,26 +630,10 @@ fun MusicLibraryContent(
       if (isFoldersTab) {
         // FolderListScreen.MediaStoreFolderListContent renders its own FAB, skip ours.
       } else if (isPlaylistsTab) {
-        FloatingActionButtonMenu(
+        if (isFabShouldBeVisible) app.infinity.mpvz.ui.browser.components.LibraryCreatePlaylistButton(
+          onClick = { showCreatePlaylistDialog = true },
           modifier = Modifier.padding(bottom = (navigationBarHeight - 16.dp).coerceAtLeast(0.dp)),
-          expanded = false,
-          button = {
-            ToggleFloatingActionButton(
-              modifier =
-                Modifier.animateFloatingActionButton(
-                  visible = isFabShouldBeVisible,
-                  alignment = Alignment.BottomEnd,
-                ),
-              checked = false,
-              onCheckedChange = { showCreatePlaylistDialog = true },
-            ) {
-              Icon(
-                imageVector = Icons.RoundedFilled.Add,
-                contentDescription = "New Playlist",
-              )
-            }
-          },
-        ) { }
+        )
       } else if (songs.isNotEmpty()) {
         FloatingActionButtonMenu(
           modifier = Modifier.padding(bottom = (navigationBarHeight - 16.dp).coerceAtLeast(0.dp)),
@@ -2052,6 +2008,7 @@ private fun ArtistListCard(
 @Composable
 private fun PlaylistArtCollage(
   artUris: List<Uri>,
+  isAudio: Boolean = true,
   isFavorites: Boolean = false,
   modifier: Modifier = Modifier
 ) {
@@ -2066,7 +2023,7 @@ private fun PlaylistArtCollage(
     when (collageUris.size) {
       0 -> {
         Icon(
-          imageVector = if (isFavorites) Icons.RoundedFilled.Favorite else Icons.RoundedFilled.QueueMusic,
+          imageVector = if (isFavorites) Icons.RoundedFilled.Favorite else if (isAudio) Icons.RoundedFilled.QueueMusic else Icons.RoundedFilled.PlaylistPlay,
           contentDescription = "Playlist",
           modifier = Modifier
             .fillMaxSize()
@@ -2224,7 +2181,7 @@ private fun PlaylistArtCollage(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MusicPlaylistCard(
+internal fun LibraryPlaylistCard(
   playlist: PlaylistEntity,
   itemCount: Int,
   artUris: List<Uri>,
@@ -2254,6 +2211,7 @@ private fun MusicPlaylistCard(
         Box(modifier = Modifier.fillMaxWidth()) {
           PlaylistArtCollage(
             artUris = artUris,
+            isAudio = playlist.isAudio,
             isFavorites = isFavorites,
             modifier = Modifier.fillMaxWidth()
           )
@@ -2285,7 +2243,7 @@ private fun MusicPlaylistCard(
             color = MaterialTheme.colorScheme.onSurface
           )
           Text(
-            text = if (itemCount == 1) "1 song" else "$itemCount songs",
+            text = if (playlist.isAudio) { if (itemCount == 1) "1 song" else "$itemCount songs" } else { if (itemCount == 1) "1 video" else "$itemCount videos" },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
@@ -2309,6 +2267,7 @@ private fun MusicPlaylistCard(
         Box(modifier = Modifier.size(coverArtSizeDp)) {
           PlaylistArtCollage(
             artUris = artUris,
+            isAudio = playlist.isAudio,
             isFavorites = isFavorites,
             modifier = Modifier.fillMaxSize()
           )
@@ -2344,7 +2303,7 @@ private fun MusicPlaylistCard(
         Spacer(modifier = Modifier.width(8.dp))
 
         Text(
-          text = if (itemCount == 1) "1 song" else "$itemCount songs",
+          text = if (playlist.isAudio) { if (itemCount == 1) "1 song" else "$itemCount songs" } else { if (itemCount == 1) "1 video" else "$itemCount videos" },
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.primary
         )
@@ -2411,7 +2370,7 @@ private fun PlaylistsTabContent(
             val details = playlistDetails[playlist.id]
             val itemCount = details?.first ?: 0
             val artUris = details?.second ?: emptyList()
-            MusicPlaylistCard(
+            LibraryPlaylistCard(
               playlist = playlist,
               itemCount = itemCount,
               artUris = artUris,
@@ -2433,7 +2392,7 @@ private fun PlaylistsTabContent(
               val details = playlistDetails[playlist.id]
               val itemCount = details?.first ?: 0
               val artUris = details?.second ?: emptyList()
-              MusicPlaylistCard(
+              LibraryPlaylistCard(
                 playlist = playlist,
                 itemCount = itemCount,
                 artUris = artUris,

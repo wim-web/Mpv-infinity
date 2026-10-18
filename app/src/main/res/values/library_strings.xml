@@ -14,4 +14,7 @@
   <string name="library_notification_allow">Allow</string>
   <string name="library_later">Later</string>
   <string name="library_unknown_artist">Unknown artist</string>
+  <string name="library_video_folders_tab">Folders</string>
+  <string name="library_show_video_tab">Show video tab</string>
+  <string name="library_show_video_tab_summary">Show videos in the bottom navigation</string>
 </resources>

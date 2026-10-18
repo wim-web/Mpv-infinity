@@ -14,4 +14,7 @@
   <string name="library_notification_allow">許可する</string>
   <string name="library_later">後で</string>
   <string name="library_unknown_artist">不明なアーティスト</string>
+  <string name="library_video_folders_tab">フォルダ</string>
+  <string name="library_show_video_tab">videoタブを表示</string>
+  <string name="library_show_video_tab_summary">下部メニューにvideoを表示</string>
 </resources>

@@ -517,122 +517,126 @@ fun FileSystemBrowserScreen(path: String? = null) {
   Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
       topBar = {
-        if (isSearching) {
-          // Search mode - show search bar instead of top bar
-          InlineSearchBar(
-            query = searchQuery,
-            onQueryChange = { searchQuery = it },
-            onSearch = { },
-            modifier =
-              Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            inputFieldModifier = Modifier.focusRequester(focusRequester),
-            placeholder = {
-              Text(
-                if (isAtRoot) {
-                  "Search in all storage volumes..."
-                } else {
-                  "Search in ${breadcrumbs.lastOrNull()?.name ?: "folder"}..."
-                },
-              )
-            },
-            leadingIcon = {
-              Icon(
-                imageVector = Icons.RoundedFilled.Search,
-                contentDescription =
-                  androidx.compose.ui.res.stringResource(
-                    app.infinity.mpvz.R.string.settings_search_title,
-                  ),
-              )
-            },
-            trailingIcon = {
-              IconButton(
-                onClick = {
-                  isSearching = false
-                  searchQuery = ""
-                },
-              ) {
+        app.infinity.mpvz.ui.browser.components.LibraryHeaderColumn {
+          if (isSearching) {
+            // Search mode - show search bar instead of top bar
+            InlineSearchBar(
+              query = searchQuery,
+              onQueryChange = { searchQuery = it },
+              onSearch = { },
+              modifier =
+                Modifier
+                  .fillMaxWidth()
+                  .padding(horizontal = 16.dp),
+              inputFieldModifier = Modifier.focusRequester(focusRequester),
+              placeholder = {
+                Text(
+                  if (isAtRoot) {
+                    "Search in all storage volumes..."
+                  } else {
+                    "Search in ${breadcrumbs.lastOrNull()?.name ?: "folder"}..."
+                  },
+                )
+              },
+              leadingIcon = {
                 Icon(
-                  imageVector = Icons.RoundedFilled.Close,
+                  imageVector = Icons.RoundedFilled.Search,
                   contentDescription =
                     androidx.compose.ui.res.stringResource(
-                      app.infinity.mpvz.R.string.generic_cancel,
+                      app.infinity.mpvz.R.string.settings_search_title,
                     ),
                 )
-              }
-            },
-            shape = RoundedCornerShape(28.dp),
-            tonalElevation = 6.dp,
-          )
-        } else {
-          BrowserTopBar(
-            title =
-              if (isAtRoot) {
-                stringResource(app.infinity.mpvz.R.string.app_name)
-              } else {
-                breadcrumbs.lastOrNull()?.name ?: "Tree View"
               },
-            isInSelectionMode = isInSelectionMode,
-            selectedCount = selectedCount,
-            totalCount = totalCount,
-            onBackClick =
-              if (isAtRoot) {
-                null
-              } else {
-                { backstack.popSafely() }
+              trailingIcon = {
+                IconButton(
+                  onClick = {
+                    isSearching = false
+                    searchQuery = ""
+                  },
+                ) {
+                  Icon(
+                    imageVector = Icons.RoundedFilled.Close,
+                    contentDescription =
+                      androidx.compose.ui.res.stringResource(
+                        app.infinity.mpvz.R.string.generic_cancel,
+                      ),
+                  )
+                }
               },
-            onCancelSelection = { selectionManager.clear() },
-            onSortClick = { sortDialogOpen.value = true },
-            onSearchClick = {
-              isSearching = !isSearching
-            },
-            additionalActions = { if (!isInSelectionMode) app.infinity.mpvz.ui.browser.LibraryMenu() },
-            onSettingsClick = null,
-            isSingleSelection = selectionManager.isSingleSelection,
-            onInfoClick =
-              if (selectedVideos.size == 1 && selectedFolders.isEmpty()) {
-                {
-                  val video = selectedVideos.firstOrNull()
-                  if (video != null) {
-                    val intent = Intent(context, app.infinity.mpvz.ui.mediainfo.MediaInfoActivity::class.java)
-                    intent.action = Intent.ACTION_VIEW
-                    intent.data = video.uri
-                    context.startActivity(intent)
-                    selectionManager.clear()
+              shape = RoundedCornerShape(28.dp),
+              tonalElevation = 6.dp,
+            )
+          } else {
+            BrowserTopBar(
+              useVideoLibraryHeader = app.infinity.mpvz.ui.browser.LocalVideoLibraryNavigation.current != null,
+              title =
+                if (isAtRoot) {
+                  stringResource(app.infinity.mpvz.R.string.app_name)
+                } else {
+                  breadcrumbs.lastOrNull()?.name ?: "Tree View"
+                },
+              isInSelectionMode = isInSelectionMode,
+              selectedCount = selectedCount,
+              totalCount = totalCount,
+              onBackClick =
+                if (isAtRoot) {
+                  null
+                } else {
+                  { backstack.popSafely() }
+                },
+              onCancelSelection = { selectionManager.clear() },
+              onSortClick = { sortDialogOpen.value = true },
+              onSearchClick = {
+                isSearching = !isSearching
+              },
+              additionalActions = { if (!isInSelectionMode) app.infinity.mpvz.ui.browser.LibraryMenu() },
+              onSettingsClick = null,
+              isSingleSelection = selectionManager.isSingleSelection,
+              onInfoClick =
+                if (selectedVideos.size == 1 && selectedFolders.isEmpty()) {
+                  {
+                    val video = selectedVideos.firstOrNull()
+                    if (video != null) {
+                      val intent = Intent(context, app.infinity.mpvz.ui.mediainfo.MediaInfoActivity::class.java)
+                      intent.action = Intent.ACTION_VIEW
+                      intent.data = video.uri
+                      context.startActivity(intent)
+                      selectionManager.clear()
+                    }
+                  }
+                } else {
+                  null
+                },
+              onShareClick = {
+                coroutineScope.launch {
+                  val videosToShare = selectedPlayableVideos()
+                  if (videosToShare.isNotEmpty()) {
+                    MediaUtils.shareVideos(context, videosToShare)
                   }
                 }
-              } else {
-                null
               },
-            onShareClick = {
-              coroutineScope.launch {
-                val videosToShare = selectedPlayableVideos()
-                if (videosToShare.isNotEmpty()) {
-                  MediaUtils.shareVideos(context, videosToShare)
+              onPlayClick = {
+                coroutineScope.launch {
+                  val videosToPlay = selectedPlayableVideos()
+                  if (videosToPlay.isNotEmpty()) {
+                    playVideosAsPlaylist(context, videosToPlay)
+                  }
+                  selectionManager.clear()
                 }
-              }
-            },
-            onPlayClick = {
-              coroutineScope.launch {
-                val videosToPlay = selectedPlayableVideos()
-                if (videosToPlay.isNotEmpty()) {
-                  playVideosAsPlaylist(context, videosToPlay)
-                }
-                selectionManager.clear()
-              }
-            },
-            onDeleteClick = { deleteDialogOpen = true },
-            onSelectAll = { selectionManager.selectAll() },
-            onInvertSelection = { selectionManager.invertSelection() },
-            onDeselectAll = { selectionManager.clear() },
-            onAddToPlaylistClick =
-              if (onlyVideosSelected) {
-                { addToPlaylistDialogOpen.value = true }
-              } else {
-                null
               },
-          )
+              onDeleteClick = { deleteDialogOpen = true },
+              onSelectAll = { selectionManager.selectAll() },
+              onInvertSelection = { selectionManager.invertSelection() },
+              onDeselectAll = { selectionManager.clear() },
+              onAddToPlaylistClick =
+                if (onlyVideosSelected) {
+                  { addToPlaylistDialogOpen.value = true }
+                } else {
+                  null
+                },
+            )
+          }
+          if (!isSearching && !selectionManager.isInSelectionMode) app.infinity.mpvz.ui.browser.VideoLibraryTabs()
         }
       },
       floatingActionButton = {

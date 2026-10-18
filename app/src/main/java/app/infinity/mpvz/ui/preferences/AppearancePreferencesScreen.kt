@@ -772,8 +772,6 @@ object AppearancePreferencesScreen : Screen {
             PreferenceCard {
               val showHomeTab by preferences.showHomeTab.collectAsState()
               val showMusicTab by preferences.showMusicTab.collectAsState()
-              val showRecentsTab by preferences.showRecentsTab.collectAsState()
-              val showPlaylistsTab by preferences.showPlaylistsTab.collectAsState()
               val showNetworkTab by preferences.showNetworkTab.collectAsState()
               val showStreamsTab by preferences.showStreamsTab.collectAsState()
               val showJellyfinTab by preferences.showJellyfinTab.collectAsState()
@@ -781,13 +779,13 @@ object AppearancePreferencesScreen : Screen {
               val showAudiobooksTab by preferences.showAudiobooksTab.collectAsState()
 
               SwitchPreference(
-                modifier = Modifier.settingsSearchTarget(R.string.pref_nav_home_title),
+                modifier = Modifier.settingsSearchTarget(R.string.library_show_video_tab),
                 value = showHomeTab,
                 onValueChange = preferences.showHomeTab::set,
-                title = { Text(text = stringResource(id = R.string.pref_nav_home_title)) },
+                title = { Text(text = stringResource(id = R.string.library_show_video_tab)) },
                 summary = {
                   Text(
-                    text = stringResource(id = R.string.pref_nav_home_summary),
+                    text = stringResource(id = R.string.library_show_video_tab_summary),
                     color = MaterialTheme.colorScheme.outline,
                   )
                 },
@@ -803,36 +801,6 @@ object AppearancePreferencesScreen : Screen {
                 summary = {
                   Text(
                     text = stringResource(id = R.string.pref_nav_music_summary),
-                    color = MaterialTheme.colorScheme.outline,
-                  )
-                },
-              )
-
-              PreferenceDivider()
-
-              SwitchPreference(
-                modifier = Modifier.settingsSearchTarget(R.string.pref_nav_recents_title),
-                value = showRecentsTab,
-                onValueChange = preferences.showRecentsTab::set,
-                title = { Text(text = stringResource(id = R.string.pref_nav_recents_title)) },
-                summary = {
-                  Text(
-                    text = stringResource(id = R.string.pref_nav_recents_summary),
-                    color = MaterialTheme.colorScheme.outline,
-                  )
-                },
-              )
-
-              PreferenceDivider()
-
-              SwitchPreference(
-                modifier = Modifier.settingsSearchTarget(R.string.pref_nav_playlists_title),
-                value = showPlaylistsTab,
-                onValueChange = preferences.showPlaylistsTab::set,
-                title = { Text(text = stringResource(id = R.string.pref_nav_playlists_title)) },
-                summary = {
-                  Text(
-                    text = stringResource(id = R.string.pref_nav_playlists_summary),
                     color = MaterialTheme.colorScheme.outline,
                   )
                 },

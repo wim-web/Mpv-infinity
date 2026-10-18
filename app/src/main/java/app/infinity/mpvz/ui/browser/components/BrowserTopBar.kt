@@ -73,6 +73,7 @@ import org.koin.compose.koinInject
 fun BrowserTopBar(
   title: String,
   showTitle: Boolean = true,
+  useVideoLibraryHeader: Boolean = false,
   isInSelectionMode: Boolean,
   selectedCount: Int,
   totalCount: Int,
@@ -136,13 +137,13 @@ fun BrowserTopBar(
   } else {
             NormalTopBar(
               title = title,
-              showTitle = showTitle,
+              showTitle = showTitle && !useVideoLibraryHeader,
       onBackClick = onBackClick,
       onSortClick = onSortClick,
       onSearchClick = onSearchClick,
       onRequestClick = onRequestClick,
       onSettingsClick = onSettingsClick,
-      leadingActions = leadingActions,
+      leadingActions = { if (useVideoLibraryHeader) app.infinity.mpvz.ui.browser.VideoLibraryLeadingActions() else leadingActions() },
       preSearchActions = preSearchActions,
       additionalActions = additionalActions,
       modifier = modifier,

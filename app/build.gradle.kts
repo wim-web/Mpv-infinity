@@ -28,6 +28,7 @@ val previewVersionCode =
     (getCommitCount().toIntOrNull() ?: 1).coerceIn(1, versionCodeBandSize - 2)
 
 plugins {
+  id("com.android.compose.screenshot") version "0.0.1-alpha16"
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose.compiler)
   alias(libs.plugins.kotlinx.serialization)
@@ -37,6 +38,7 @@ plugins {
 }
 
 android {
+  experimentalProperties["android.experimental.enableScreenshotTest"] = true
   namespace = "app.infinity.mpvz"
   compileSdk = 37
   ndkVersion = "27.3.13750724"
@@ -240,6 +242,8 @@ room {
 }
 
 dependencies {
+  screenshotTestImplementation("com.android.tools.screenshot:screenshot-validation-api:0.0.1-alpha16")
+  screenshotTestImplementation(libs.androidx.ui.tooling)
   implementation(libs.androidx.activity.compose)
   implementation(platform(libs.androidx.compose.bom))
   implementation(libs.androidx.ui)

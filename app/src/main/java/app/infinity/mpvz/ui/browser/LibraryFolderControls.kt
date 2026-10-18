@@ -104,6 +104,7 @@ fun LibraryFolderEmptyState(modifier: Modifier = Modifier, onChoose: () -> Unit)
 
 @Composable
 fun LibraryMenu(onPlaylists: (() -> Unit)? = null) {
+  val videoLibrary = LocalVideoLibraryNavigation.current
   val backStack = LocalBackStack.current
   var expanded by remember { mutableStateOf(false) }
   Box {
@@ -116,7 +117,7 @@ fun LibraryMenu(onPlaylists: (() -> Unit)? = null) {
         onClick = { expanded = false; backStack.add(LibraryFoldersScreen) })
       DropdownMenuItem(text = { Text(stringResource(R.string.ui_playlists)) },
         leadingIcon = { Icon(Icons.RoundedFilled.PlaylistPlay, contentDescription = null) },
-        onClick = { expanded = false; if (onPlaylists != null) onPlaylists() else backStack.add(PlaylistScreen) })
+        onClick = { expanded = false; if (onPlaylists != null) onPlaylists() else if (videoLibrary != null) videoLibrary.select(true) else backStack.add(PlaylistScreen) })
       DropdownMenuItem(text = { Text(stringResource(R.string.ui_settings)) },
         leadingIcon = { Icon(Icons.RoundedFilled.Settings, contentDescription = null) },
         onClick = { expanded = false; backStack.add(app.infinity.mpvz.ui.preferences.PreferencesScreen) })

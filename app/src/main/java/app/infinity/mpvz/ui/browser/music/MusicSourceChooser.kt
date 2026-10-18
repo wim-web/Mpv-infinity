@@ -88,24 +88,10 @@ fun MusicSourceChooser(
     }
   }
 
-  Surface(
-    modifier = modifier
-      .clip(RoundedCornerShape(20.dp))
-      .clickable { expanded = true },
-    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.82f),
+  app.infinity.mpvz.ui.browser.components.LibrarySourceSelector(
+    title = sourceTitle, expanded = expanded, onExpandedChange = { expanded = it },
+    icon = { sourceIcon(currentSource, 20.dp) }, modifier = modifier,
   ) {
-    Row(
-      modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.Center,
-    ) {
-      sourceIcon(currentSource, 20.dp)
-      Spacer(Modifier.width(6.dp))
-      Text(sourceTitle, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-      Spacer(Modifier.width(4.dp))
-      Icon(Icons.RoundedFilled.ExpandMore, contentDescription = null, modifier = Modifier.size(20.dp))
-    }
-    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
       MusicSourceItem(stringResource(R.string.music_source_local), MusicSourceProvider.LOCAL, currentSource == MusicSourceProvider.LOCAL) {
         preferences.musicSourceProvider.set(MusicSourceProvider.LOCAL)
         expanded = false
@@ -130,7 +116,6 @@ fun MusicSourceChooser(
           onManageServers()
         },
       )
-    }
   }
 }
 

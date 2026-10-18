@@ -93,7 +93,9 @@ object PlaylistScreen : Screen {
         factory = PlaylistViewModel.factory(context.applicationContext as android.app.Application),
       )
 
-    val playlistsWithCount by viewModel.playlistsWithCount.collectAsState()
+    val allPlaylistsWithCount by viewModel.playlistsWithCount.collectAsState()
+    val videoLibrary = app.infinity.mpvz.ui.browser.LocalVideoLibraryNavigation.current != null
+    val playlistsWithCount = if (videoLibrary) allPlaylistsWithCount.filter { !it.playlist.isAudio } else allPlaylistsWithCount
     val isLoading by viewModel.isLoading.collectAsState()
     val hasCompletedInitialLoad by viewModel.hasCompletedInitialLoad.collectAsState()
 
@@ -181,80 +183,96 @@ object PlaylistScreen : Screen {
 
     Scaffold(
       topBar = {
-        if (isSearching) {
-          // Search mode - show search bar
-          InlineSearchBar(
-            query = searchQuery,
-            onQueryChange = { searchQuery = it },
-            onSearch = { },
-            modifier =
-              Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            inputFieldModifier = Modifier.focusRequester(focusRequester),
-            placeholder = {
-              Text(
-                androidx.compose.ui.res
-                  .stringResource(app.infinity.mpvz.R.string.ui_search_playlists),
-              )
-            },
-            leadingIcon = {
-              Icon(
-                imageVector = Icons.RoundedFilled.Search,
-                contentDescription =
-                  androidx.compose.ui.res.stringResource(
-                    app.infinity.mpvz.R.string.settings_search_title,
-                  ),
-              )
-            },
-            trailingIcon = {
-              IconButton(
-                onClick = {
-                  isSearching = false
-                  searchQuery = ""
-                },
-              ) {
+        app.infinity.mpvz.ui.browser.components.LibraryHeaderColumn {
+          if (isSearching) {
+            // Search mode - show search bar
+            InlineSearchBar(
+              query = searchQuery,
+              onQueryChange = { searchQuery = it },
+              onSearch = { },
+              modifier =
+                Modifier
+                  .fillMaxWidth()
+                  .padding(horizontal = 16.dp, vertical = 8.dp),
+              inputFieldModifier = Modifier.focusRequester(focusRequester),
+              placeholder = {
+                Text(
+                  androidx.compose.ui.res
+                    .stringResource(app.infinity.mpvz.R.string.ui_search_playlists),
+                )
+              },
+              leadingIcon = {
                 Icon(
-                  imageVector = Icons.RoundedFilled.Close,
+                  imageVector = Icons.RoundedFilled.Search,
                   contentDescription =
                     androidx.compose.ui.res.stringResource(
-                      app.infinity.mpvz.R.string.generic_cancel,
+                      app.infinity.mpvz.R.string.settings_search_title,
                     ),
                 )
-              }
-            },
-            shape = RoundedCornerShape(28.dp),
-            tonalElevation = 6.dp,
-          )
-        } else {
-          BrowserTopBar(
-            title = stringResource(R.string.ui_playlists),
-            isInSelectionMode = selectionManager.isInSelectionMode,
-            selectedCount = selectionManager.selectedCount,
-            totalCount = playlistsWithCount.size,
-            onBackClick = if (backStack.size > 1 && backStack.lastOrNull() == PlaylistScreen) ({ backStack.popSafely() }) else null,
-            onCancelSelection = { selectionManager.clear() },
-            isSingleSelection = selectionManager.isSingleSelection,
-            onSearchClick = { isSearching = true },
-            onSettingsClick = {
-              backStack.add(app.infinity.mpvz.ui.preferences.PreferencesScreen)
-            },
-            onRenameClick =
-              if (selectionManager.isSingleSelection && !hasProtectedSelection) {
-                { showRenameDialog = true }
-              } else {
-                null
               },
-            onDeleteClick = if (hasProtectedSelection) null else ({ showDeleteDialog = true }),
-            onSelectAll = { selectionManager.selectAll() },
-            onInvertSelection = { selectionManager.invertSelection() },
-            onDeselectAll = { selectionManager.clear() },
-          )
+              trailingIcon = {
+                IconButton(
+                  onClick = {
+                    isSearching = false
+                    searchQuery = ""
+                  },
+                ) {
+                  Icon(
+                    imageVector = Icons.RoundedFilled.Close,
+                    contentDescription =
+                      androidx.compose.ui.res.stringResource(
+                        app.infinity.mpvz.R.string.generic_cancel,
+                      ),
+                  )
+                }
+              },
+              shape = RoundedCornerShape(28.dp),
+              tonalElevation = 6.dp,
+            )
+          } else {
+            BrowserTopBar(
+              useVideoLibraryHeader = app.infinity.mpvz.ui.browser.LocalVideoLibraryNavigation.current != null,
+              title = stringResource(if (videoLibrary) R.string.ui_videos else R.string.ui_playlists),
+              isInSelectionMode = selectionManager.isInSelectionMode,
+              selectedCount = selectionManager.selectedCount,
+              totalCount = playlistsWithCount.size,
+              onBackClick = if (backStack.size > 1 && backStack.lastOrNull() == PlaylistScreen) ({ backStack.popSafely() }) else null,
+              onCancelSelection = { selectionManager.clear() },
+              isSingleSelection = selectionManager.isSingleSelection,
+              onSearchClick = { isSearching = true },
+              onSettingsClick = if (videoLibrary) null else ({ backStack.add(app.infinity.mpvz.ui.preferences.PreferencesScreen) }),
+              additionalActions = { if (videoLibrary && !selectionManager.isInSelectionMode) app.infinity.mpvz.ui.browser.LibraryMenu() },
+              onRenameClick =
+                if (selectionManager.isSingleSelection && !hasProtectedSelection) {
+                  { showRenameDialog = true }
+                } else {
+                  null
+                },
+              onDeleteClick = if (hasProtectedSelection) null else ({ showDeleteDialog = true }),
+              onSelectAll = { selectionManager.selectAll() },
+              onInvertSelection = { selectionManager.invertSelection() },
+              onDeselectAll = { selectionManager.clear() },
+            )
+          }
+          if (!isSearching && !selectionManager.isInSelectionMode) app.infinity.mpvz.ui.browser.VideoLibraryTabs()
+          if (videoLibrary && !isSearching && !selectionManager.isInSelectionMode) {
+            androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
+              Text("${playlistsWithCount.size} Playlists", modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+          }
         }
       },
       floatingActionButton = {
         val navigationBarHeight = app.infinity.mpvz.ui.browser.LocalNavigationBarHeight.current
         if (!selectionManager.isInSelectionMode) {
+          if (videoLibrary) {
+            app.infinity.mpvz.ui.browser.components.LibraryCreatePlaylistButton(
+              onClick = { showPlaylistActionSheet = true },
+              modifier = Modifier.padding(bottom = (navigationBarHeight - 16.dp).coerceAtLeast(0.dp)),
+            )
+          } else {
           ExtendedFloatingActionButton(
             onClick = { showPlaylistActionSheet = true },
             icon = { Icon(Icons.RoundedFilled.Add, contentDescription = null) },
@@ -266,6 +284,7 @@ object PlaylistScreen : Screen {
             },
             modifier = Modifier.padding(bottom = (navigationBarHeight - 16.dp).coerceAtLeast(0.dp)),
           )
+          }
         }
       },
     ) { paddingValues ->
@@ -436,10 +455,12 @@ object PlaylistScreen : Screen {
   ) {
     val browserPreferences = koinInject<app.infinity.mpvz.preferences.BrowserPreferences>()
     val mediaLayoutMode by browserPreferences.mediaLayoutMode.collectAsState()
+    val coverArtSizeDp by browserPreferences.musicCoverArtSize.collectAsState()
     val manualGridColumnsEnabled by browserPreferences.manualGridColumnsEnabled.collectAsState()
     val folderGridColumnsPortrait by browserPreferences.folderGridColumnsPortrait.collectAsState()
     val folderGridColumnsLandscape by browserPreferences.folderGridColumnsLandscape.collectAsState()
 
+    val videoLibrary = app.infinity.mpvz.ui.browser.LocalVideoLibraryNavigation.current != null
     val isGridMode = mediaLayoutMode == MediaLayoutMode.GRID
 
     // Only show scrollbar if list has more than 20 items
@@ -485,23 +506,31 @@ object PlaylistScreen : Screen {
             }
 
           LazyVerticalGrid(
-            columns = GridCells.Fixed(folderGridColumns),
+            columns = if (videoLibrary) GridCells.Adaptive(145.dp) else GridCells.Fixed(folderGridColumns),
             state = gridState,
             modifier = Modifier.fillMaxSize(),
             contentPadding =
               PaddingValues(
-                start = 8.dp,
-                end = 8.dp,
+                start = if (videoLibrary) 16.dp else 8.dp,
+                end = if (videoLibrary) 16.dp else 8.dp,
+                top = if (videoLibrary) 8.dp else 0.dp,
                 bottom = if (isInSelectionMode) 88.dp else navigationBarHeight,
               ),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (videoLibrary) 14.dp else 8.dp),
+            verticalArrangement = Arrangement.spacedBy(if (videoLibrary) 14.dp else 8.dp),
           ) {
             items(
               count = playlistsWithCount.size,
               key = { playlistsWithCount[it].playlist.id },
             ) { index ->
               val playlistWithCount = playlistsWithCount[index]
+              if (videoLibrary) {
+                app.infinity.mpvz.ui.browser.music.LibraryPlaylistCard(
+                  playlist = playlistWithCount.playlist, itemCount = playlistWithCount.itemCount,
+                  artUris = emptyList(), coverArtSizeDp = coverArtSizeDp.dp, isSelected = selectionManager.isSelected(playlistWithCount), isGridMode = true,
+                  onClick = { onPlaylistClick(playlistWithCount) }, onLongClick = { onPlaylistLongClick(playlistWithCount) },
+                )
+              } else {
               PlaylistCard(
                 playlist = playlistWithCount.playlist,
                 itemCount = playlistWithCount.itemCount,
@@ -511,6 +540,7 @@ object PlaylistScreen : Screen {
                 onThumbClick = { onPlaylistClick(playlistWithCount) },
                 isGridMode = true,
               )
+              }
             }
           }
           if (hasEnoughItems && scrollbarAlpha > 0.01f) {
@@ -540,13 +570,21 @@ object PlaylistScreen : Screen {
             modifier = Modifier.fillMaxSize(),
             contentPadding =
               PaddingValues(
-                start = 8.dp,
-                end = 8.dp,
+                start = if (videoLibrary) 0.dp else 8.dp,
+                end = if (videoLibrary) 32.dp else 8.dp,
+                top = if (videoLibrary) 8.dp else 0.dp,
                 bottom = if (isInSelectionMode) 88.dp else navigationBarHeight,
               ),
             verticalArrangement = Arrangement.spacedBy(0.dp),
           ) {
             items(playlistsWithCount, key = { it.playlist.id }) { playlistWithCount ->
+              if (videoLibrary) {
+                app.infinity.mpvz.ui.browser.music.LibraryPlaylistCard(
+                  playlist = playlistWithCount.playlist, itemCount = playlistWithCount.itemCount,
+                  artUris = emptyList(), coverArtSizeDp = coverArtSizeDp.dp, isSelected = selectionManager.isSelected(playlistWithCount), isGridMode = false,
+                  onClick = { onPlaylistClick(playlistWithCount) }, onLongClick = { onPlaylistLongClick(playlistWithCount) },
+                )
+              } else {
               PlaylistCard(
                 playlist = playlistWithCount.playlist,
                 itemCount = playlistWithCount.itemCount,
@@ -556,6 +594,7 @@ object PlaylistScreen : Screen {
                 onThumbClick = { onPlaylistClick(playlistWithCount) },
                 isGridMode = false,
               )
+              }
             }
           }
           if (hasEnoughItems && scrollbarAlpha > 0.01f) {

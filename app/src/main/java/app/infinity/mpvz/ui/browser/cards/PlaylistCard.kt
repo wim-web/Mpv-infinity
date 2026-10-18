@@ -109,6 +109,7 @@ fun PlaylistCard(
   // Use the FolderCard component with playlist-specific customizations
   FolderCard(
     folder = folderModel,
+    isAudioOnly = playlist.isAudio,
     isSelected = isSelected,
     isRecentlyPlayed = false,
     onClick = onClick,

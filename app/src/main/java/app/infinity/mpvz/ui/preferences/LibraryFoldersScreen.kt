@@ -3,14 +3,10 @@ package app.infinity.mpvz.ui.preferences
 import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -67,36 +63,50 @@ object LibraryFoldersScreen : Screen {
       }
       changed()
     }
-    Scaffold(topBar = {
-      BrowserTopBar(title = stringResource(R.string.library_folders), isInSelectionMode = false,
-        selectedCount = 0, totalCount = 0, onCancelSelection = {}, onBackClick = { backStack.popSafely() })
-    }) { padding ->
-      LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        listOf(false, true).forEach { isAudio ->
-          item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-              Text(stringResource(if (isAudio) R.string.library_audio_folders else R.string.library_video_folders),
-                style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 16.dp))
-              Surface(shape = AppShapeScale.large, color = MaterialTheme.colorScheme.surfaceContainer) {
-                Column {
-                  (if (isAudio) audio else video).sorted().forEach { uri ->
-                    val label = runCatching { DocumentsContract.getTreeDocumentId(Uri.parse(uri)).substringAfter(':').ifBlank { DocumentsContract.getTreeDocumentId(Uri.parse(uri)) } }.getOrDefault(uri)
-                    ListItem(headlineContent = { Text(labels[uri]?.takeIf { it.isNotBlank() } ?: label.substringAfterLast('/')) },
-                      supportingContent = if ('/' in label) ({ Text(label) }) else null,
-                      leadingContent = { Icon(Icons.RoundedFilled.Folder, contentDescription = null) },
-                      trailingContent = {
-                        IconButton(onClick = { remove(isAudio, uri) }) {
-                          Icon(Icons.RoundedFilled.Close, contentDescription = stringResource(R.string.library_remove))
-                        }
-                      }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer))
-                  }
-                  TextButton(onClick = { picker(isAudio) }, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-                    Icon(Icons.RoundedFilled.Add, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.library_add_folder))
-                  }
+    LibraryFoldersContent(video, audio, labels, onBack = { backStack.popSafely() }, onAdd = picker, onRemove = ::remove)
+  }
+}
+
+/** Shared by the screen and device-free previews; permission handling stays in the screen. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun LibraryFoldersContent(
+  video: Set<String>,
+  audio: Set<String>,
+  labels: Map<String, String>,
+  onBack: () -> Unit,
+  onAdd: (Boolean) -> Unit,
+  onRemove: (Boolean, String) -> Unit,
+) {
+  Scaffold(topBar = {
+    BrowserTopBar(title = stringResource(R.string.library_folders), isInSelectionMode = false,
+      selectedCount = 0, totalCount = 0, onCancelSelection = {}, onBackClick = onBack)
+  }) { padding ->
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp),
+      verticalArrangement = Arrangement.spacedBy(24.dp)) {
+      listOf(false, true).forEach { isAudio ->
+        item {
+          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(if (isAudio) R.string.library_audio_folders else R.string.library_video_folders),
+              style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.padding(horizontal = 16.dp))
+            Surface(shape = AppShapeScale.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+              Column {
+                (if (isAudio) audio else video).sorted().forEach { uri ->
+                  val label = runCatching { DocumentsContract.getTreeDocumentId(Uri.parse(uri)).substringAfter(':').ifBlank { DocumentsContract.getTreeDocumentId(Uri.parse(uri)) } }.getOrDefault(uri)
+                  ListItem(headlineContent = { Text(labels[uri]?.takeIf { it.isNotBlank() } ?: label.substringAfterLast('/')) },
+                    supportingContent = if ('/' in label) ({ Text(label) }) else null,
+                    leadingContent = { Icon(Icons.RoundedFilled.Folder, contentDescription = null) },
+                    trailingContent = {
+                      IconButton(onClick = { onRemove(isAudio, uri) }) {
+                        Icon(Icons.RoundedFilled.Close, contentDescription = stringResource(R.string.library_remove))
+                      }
+                    }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer))
+                }
+                TextButton(onClick = { onAdd(isAudio) }, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                  Icon(Icons.RoundedFilled.Add, contentDescription = null)
+                  Spacer(Modifier.width(8.dp))
+                  Text(stringResource(R.string.library_add_folder))
                 }
               }
             }
