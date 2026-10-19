@@ -32,6 +32,7 @@ object Icons {
     val ArrowForward by lazy(LazyThreadSafetyMode.NONE) { AppIcon(MaterialSymbols.RoundedFilled.East) }
     val ArrowLeftAlt by lazy(LazyThreadSafetyMode.NONE) { AppIcon(MaterialSymbols.RoundedFilled.Arrow_left_alt) }
     val AspectRatio by lazy(LazyThreadSafetyMode.NONE) { AppIcon(MaterialSymbols.RoundedFilled.Aspect_ratio) }
+    val Fullscreen by lazy(LazyThreadSafetyMode.NONE) { AppIcon(MaterialSymbols.RoundedFilled.Fullscreen) }
     val Audiotrack by lazy(LazyThreadSafetyMode.NONE) { AppIcon(MaterialSymbols.RoundedFilled.Music_note) }
     val AudiobookWave by lazy(LazyThreadSafetyMode.NONE) { AppIcon(AudiobookWaveVector) }
     val AutoAwesome by lazy(LazyThreadSafetyMode.NONE) { AppIcon(MaterialSymbols.RoundedFilled.Auto_awesome) }
@@ -278,6 +279,7 @@ object Icons {
     val ArrowForward get() = Shared.ArrowForward
     val ArrowLeftAlt get() = Shared.ArrowLeftAlt
     val AspectRatio get() = Shared.AspectRatio
+    val Fullscreen get() = Shared.Fullscreen
     val Audiotrack get() = Shared.Audiotrack
     val AudiobookWave get() = Shared.AudiobookWave
     val AutoAwesome get() = Shared.AutoAwesome

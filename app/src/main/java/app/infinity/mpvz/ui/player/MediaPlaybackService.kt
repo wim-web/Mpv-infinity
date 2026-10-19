@@ -43,6 +43,7 @@ import androidx.core.graphics.ColorUtils
 import androidx.media.MediaBrowserServiceCompat
 import androidx.media.session.MediaButtonReceiver
 import app.infinity.mpvz.R
+import app.infinity.mpvz.MainActivity
 import app.infinity.mpvz.database.entities.PlaybackStateEntity
 import app.infinity.mpvz.database.repository.PlaylistRepository
 import app.infinity.mpvz.domain.playbackstate.repository.PlaybackStateRepository
@@ -690,6 +691,7 @@ class MediaPlaybackService :
 
   private fun playNextFromSession(): Boolean {
     if (!canHandleTransportAction()) return false
+    if (InAppVideoPlayback.active.value) return InAppVideoPlayback.playNext()
     schedulePlaybackStateSave(force = true)
     val item = PlaybackSession.playNext()
     if (item == null) {
@@ -702,6 +704,10 @@ class MediaPlaybackService :
 
   private fun playPreviousFromSession() {
     if (!canHandleTransportAction()) return
+    if (InAppVideoPlayback.active.value) {
+      InAppVideoPlayback.playNext(previous = true)
+      return
+    }
     schedulePlaybackStateSave(force = true)
     PlaybackSession.playPrevious()?.let(::applySessionItem) ?: refreshTransportControls()
   }
@@ -996,13 +1002,14 @@ class MediaPlaybackService :
     // Never kill the shared PlaybackSession media while an Activity is taking it back over.
     // A fresh launch may already have destroyed and recreated the shared session before this
     // service's asynchronous onDestroy() callback reaches here.
-    if (mpvAccessReleased || activityForeground || handingBackToActivity) return
+    if (mpvAccessReleased || activityForeground || handingBackToActivity || InAppVideoPlayback.active.value) return
     if (PlaybackSession.state.value.surfaceAttached) return
     torrentStreamingEngine.stopStream()
     PlaybackSession.stop(clearQueue = false)
   }
 
   private fun handleDetachedEndOfFile() {
+    if (InAppVideoPlayback.active.value) return
     if (activityForeground || PlaybackSession.state.value.surfaceAttached || !foregroundReady) return
     val queueState = PlaybackSession.queue.value
     val autoplay = if (notificationIsAudio) playerPreferences.autoplayNextAudio.get() else playerPreferences.autoplayNextVideo.get()
@@ -1257,6 +1264,7 @@ class MediaPlaybackService :
     if (useProgressNotification()) buildModernNotification() else buildLegacyNotification()
 
   private fun buildContentIntent(): PendingIntent {
+    val openInApp = InAppVideoPlayback.active.value
     val currentItem = PlaybackSession.queue.value.currentItem
     val isAudio =
       notificationIsAudio || currentItem?.declaredMediaKind() == DeclaredPlaybackMediaKind.AUDIO
@@ -1264,8 +1272,8 @@ class MediaPlaybackService :
     val targetTitle = currentItem?.title?.takeIf { it.isNotBlank() } ?: mediaTitle
     val targetIdentifier = currentItem?.stableId?.takeIf { it.isNotBlank() } ?: mediaIdentifier
     val contentIntent =
-      Intent(this, PlayerActivity::class.java).apply {
-        action = ACTION_OPEN_PLAYER
+      Intent(this, if (openInApp) MainActivity::class.java else PlayerActivity::class.java).apply {
+        action = if (openInApp) Intent.ACTION_MAIN else ACTION_OPEN_PLAYER
         type = currentItem?.mimeType ?: "audio/*".takeIf { isAudio }
         targetUri?.let { putExtra("uri", it) }
         putExtra("title", targetTitle)
@@ -1933,6 +1941,7 @@ class MediaPlaybackService :
   }
 
   override fun onDestroy() {
+    InAppVideoPlayback.onServiceStopped()
     try {
       Log.d(TAG, "Service destroyed")
 

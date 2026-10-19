@@ -360,7 +360,7 @@ fun MediaLibraryContent(forceAudio: Boolean = false) {
         putExtra("title", video.displayName)
         putExtra("local_media_path", video.path)
       }
-    context.startActivity(intent)
+    PlayerActivity.launch(context, intent)
   }
 
   BackHandler(enabled = selectionManager.isInSelectionMode || isSearching || (isFabExpanded.value && !quickPlayFabDirect)) {

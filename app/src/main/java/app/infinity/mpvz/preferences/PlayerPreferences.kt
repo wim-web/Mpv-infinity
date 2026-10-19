@@ -19,6 +19,7 @@ import app.infinity.mpvz.ui.player.PlayerOrientation
 import app.infinity.mpvz.ui.player.RepeatMode
 import app.infinity.mpvz.ui.player.VideoAspect
 import app.infinity.mpvz.ui.player.VideoOpenAnimation
+import app.infinity.mpvz.ui.player.VideoPlaybackMode
 import app.infinity.mpvz.ui.player.screenshot.ScreenshotFormat
 
 enum class IntroSegmentProvider(
@@ -44,6 +45,7 @@ class PlayerPreferences(
   preferenceStore: PreferenceStore,
 ) {
   val orientation = preferenceStore.getEnum("player_orientation", PlayerOrientation.Video)
+  val defaultVideoPlaybackMode = preferenceStore.getEnum("default_video_playback_mode", VideoPlaybackMode.FULLSCREEN)
   val invertDuration = preferenceStore.getBoolean("invert_duration")
   val holdForMultipleSpeed = preferenceStore.getFloat("hold_for_multiple_speed", 2f)
   val showDoubleTapOvals = preferenceStore.getBoolean("show_double_tap_ovals", true)

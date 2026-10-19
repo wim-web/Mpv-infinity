@@ -92,6 +92,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.viewinterop.AndroidView
 import app.infinity.mpvz.ui.player.MPVPipHelper
+import app.infinity.mpvz.ui.player.InAppVideoPlayback
 import app.infinity.mpvz.ui.player.PlaybackPhase
 import app.infinity.mpvz.ui.player.PlaybackSession
 import app.infinity.mpvz.ui.player.PlayerActivity
@@ -355,6 +356,7 @@ class MainActivity : AppCompatActivity() {
 
   override fun onStart() {
     super.onStart()
+    InAppVideoPlayback.onHostStarted()
     pipHelper.updatePictureInPictureParams()
   }
 
@@ -379,6 +381,7 @@ class MainActivity : AppCompatActivity() {
 
   override fun onUserLeaveHint() {
     super.onUserLeaveHint()
+    if (InAppVideoPlayback.active.value) return
     val isServiceRunning = MediaPlaybackService.isForegroundActive()
     val sessionState = PlaybackSession.state.value
     val isMediaActive = isServiceRunning && sessionState.currentItem != null &&
@@ -478,6 +481,7 @@ class MainActivity : AppCompatActivity() {
 
   override fun onStop() {
     super.onStop()
+    InAppVideoPlayback.onHostStopped()
     pipHelper.onStop()
     pendingPipExitResolution = false
     wasInPipMode = false

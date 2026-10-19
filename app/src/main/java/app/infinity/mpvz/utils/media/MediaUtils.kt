@@ -103,7 +103,7 @@ object MediaUtils {
         putExtra(PlayerActivity.EXTRA_VIDEO_WIDTH, selected.width)
         putExtra(PlayerActivity.EXTRA_VIDEO_HEIGHT, selected.height)
       }
-    context.startActivity(intent)
+    PlayerActivity.launch(context, intent)
   }
 
   /**
@@ -205,7 +205,7 @@ object MediaUtils {
             isAudio = isAudio,
             playlistDurationsSeconds = playlistDurationsSeconds,
           )
-          context.startActivity(intent)
+          PlayerActivity.launch(context, intent)
           return
         }
 
@@ -292,7 +292,7 @@ object MediaUtils {
       isAudio = isAudio,
       playlistDurationsSeconds = playlistDurationsSeconds,
     )
-    context.startActivity(intent)
+    PlayerActivity.launch(context, intent)
   }
 
   private fun String?.isHistoryResumeLaunch(): Boolean =

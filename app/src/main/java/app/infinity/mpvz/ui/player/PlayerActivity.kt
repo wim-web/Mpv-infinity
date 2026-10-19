@@ -32,6 +32,7 @@ import android.media.session.PlaybackState
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
@@ -154,6 +155,7 @@ import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
 import okhttp3.OkHttpClient
 import java.io.File
+import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 import kotlin.math.pow
@@ -519,6 +521,7 @@ class PlayerActivity :
   private lateinit var castPlaybackController: CastPlaybackController
 
   private var isReady = false // Single flag: true when video loaded and ready
+  private val videoPlaybackLaunchState = VideoPlaybackLaunchState()
   private var isUserFinishing = false
   private var isBackgroundPlaybackSessionActive = false
   private var reusingPlaybackSessionOnLaunch = false
@@ -731,6 +734,7 @@ class PlayerActivity :
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
+    InAppVideoPlayback.handoff()
     restoreAudioPlaybackSessionIfNeeded()
     if (redirectUnselectedTorrentToPicker(intent, finishCurrent = true)) return
     if (!acceptPreparedPlaybackLaunch(intent)) {
@@ -738,6 +742,10 @@ class PlayerActivity :
       return
     }
     playbackOwnerToken = PlaybackActivityOwner.claim()
+    activePlayer = WeakReference(this)
+    if (savedInstanceState == null && intent.action != MediaPlaybackService.ACTION_OPEN_PLAYER) {
+      requestDefaultVideoPlaybackMode()
+    }
     pendingSavedPlaylistSelection = savedInstanceState?.toSavedPlaylistSelection()
     if (!beginMediaRequest()) {
       finish()
@@ -1103,6 +1111,7 @@ class PlayerActivity :
               }
             if (requestedOrientation != targetOrientation) requestedOrientation = targetOrientation
           }
+          maybeEnterDefaultPip()
         }
       }
     }
@@ -1445,6 +1454,18 @@ class PlayerActivity :
       viewModel.panelShown.update { Panels.None }
       viewModel.showControls()
       return
+    }
+
+    if (playerPreferences.defaultVideoPlaybackMode.get() == VideoPlaybackMode.IN_APP &&
+      intent.getBooleanExtra("internal_launch", false) && !isCurrentPlaybackAudio()
+    ) {
+      val position = if (isNativeEngineActive()) nativeEngine.currentPlayer.currentPosition / 1000.0
+        else PlaybackSession.getPropertyDouble("time-pos") ?: 0.0
+      val handedOff = InAppVideoPlayback.returnFromPlayer(this, position) {
+        if (isNativeEngineActive()) nativeEngine.stop()
+        finish()
+      }
+      if (handedOff) return
     }
 
     // If mini player is enabled, back press within the app hands off playback to the mini player
@@ -2023,6 +2044,7 @@ class PlayerActivity :
   override fun onWindowFocusChanged(hasFocus: Boolean) {
     super.onWindowFocusChanged(hasFocus)
     if (hasFocus && !isInPictureInPictureMode) completePipExpansion()
+    if (hasFocus) maybeEnterDefaultPip()
     if (!hasFocus) {
       cancelSystemBarsAutoHide()
       return
@@ -2053,6 +2075,7 @@ class PlayerActivity :
 
   override fun onDestroy() {
     Log.d(TAG, "PlayerActivity onDestroy")
+    if (activePlayer.get() === this) activePlayer.clear()
     val ownsPlaybackSession = ownsPlaybackSession()
     val playbackWasInitialized = mpvInitialized
     val nativeWasActive =
@@ -2548,10 +2571,13 @@ class PlayerActivity :
   }
 
   private fun completePipExpansion() {
-    if (!pendingPipExitResolution) return
+    // Keep PiP history through onStart and media launches until foreground focus restores
+    // the controls. Android may deliver PiP=false after onResume/onWindowFocusChanged.
+    if (isInPictureInPictureMode || (!pendingPipExitResolution && !wasInPipMode)) return
     pendingPipExitResolution = false
     handledPipDismissal = false
     wasInPipMode = false
+    isAmbientPipMode = false
     if (startedBackgroundForPip) {
       startedBackgroundForPip = false
       endBackgroundPlayback()
@@ -2608,10 +2634,6 @@ class PlayerActivity :
       registerScreenStateReceiver()
 
       applyPlaybackBrightnessPolicy()
-
-      if (!isInPictureInPictureMode) {
-        if (!pendingPipExitResolution) wasInPipMode = false
-      }
     }.onFailure { e ->
       Log.e(TAG, "Error during onStart", e)
     }
@@ -3916,6 +3938,7 @@ class PlayerActivity :
     updateVolume()
     resumePlaybackAfterScreenUnlockIfNeeded()
     if (!screenUnlockPlaybackController.hasPendingResume()) wasPlayingBeforePause = false
+    maybeEnterDefaultPip()
   }
 
   /**
@@ -4878,6 +4901,7 @@ class PlayerActivity :
         }
         viewModel.onVideoLoadCompleted()
         handleFileLoaded(loadGeneration)
+        runOnUiThread { maybeEnterDefaultPip() }
         scheduleDeferredUserMpvAssetRefresh()
         if (isBackgroundPlaybackEnabled()) {
           startBackgroundPlayback(allowUserPrompt = false)
@@ -5861,6 +5885,7 @@ class PlayerActivity :
    */
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
+    InAppVideoPlayback.handoff()
     handleNewIntent(intent)
   }
 
@@ -5880,6 +5905,7 @@ class PlayerActivity :
         return
       }
       MediaPlaybackService.ACTION_OPEN_PLAYER -> {
+        videoPlaybackLaunchState.onMediaLaunch(preferPip = false)
         isBackgroundPlaybackSessionActive = false
         pendingBackgroundTransition = false
         if (attachToCurrentPlaybackSessionIfRequested(intent)) {
@@ -5921,6 +5947,7 @@ class PlayerActivity :
       hasAttachableAudioSession(intent) &&
       attachToCurrentPlaybackSessionIfRequested(intent)
     ) {
+      videoPlaybackLaunchState.onMediaLaunch(preferPip = false)
       isBackgroundPlaybackSessionActive = false
       pendingBackgroundTransition = false
       isReady = PlaybackSession.state.value.phase == PlaybackPhase.READY
@@ -5952,6 +5979,8 @@ class PlayerActivity :
     val previousItemWasReady = isReady
 
     setIntent(intent)
+    requestDefaultVideoPlaybackMode()
+    isStreamTabPlayback = intent.getBooleanExtra("stream_tab_playback", false)
     applyInitialVideoOrientation(intent)
     applyPlaybackBrightnessPolicy(isAudio = isCurrentMediaKnownAudio())
     if (!beginMediaRequest()) return
@@ -5961,13 +5990,12 @@ class PlayerActivity :
 
     isBackgroundPlaybackSessionActive = false
     pendingBackgroundTransition = false
-    // PlayerActivity is singleTask. After closing a native PiP window Android can deliver the
-    // next media through onNewIntent on the same instance; clear terminal/PiP state so the PiP
-    // action is available again for the newly loaded video.
+    // PlayerActivity is singleTask. New media can arrive during PiP expansion or after a
+    // dismissed PiP window. Clear terminal state, but preserve the PiP transition until the
+    // foreground callbacks restore the controls; clearing it here leaves their alpha at zero.
     isUserFinishing = false
-    wasInPipMode = false
-    pendingPipExitResolution = false
     handledPipDismissal = false
+    if (hasWindowFocus()) completePipExpansion()
     if (!isBackgroundPlaybackEnabled() && (serviceBound || mediaPlaybackService != null || MediaPlaybackService.isRunning())) {
       endBackgroundPlayback()
     }
@@ -6118,6 +6146,7 @@ class PlayerActivity :
         startMediaLoad(uri, originalUri?.toString())
       }
     }
+    maybeEnterDefaultPip()
   }
 
   private fun startMediaLoad(
@@ -6752,6 +6781,26 @@ class PlayerActivity :
 
   // ==================== Picture-in-Picture Management ====================
 
+  private fun requestDefaultVideoPlaybackMode() {
+    videoPlaybackLaunchState.onMediaLaunch(
+      preferPip = playerPreferences.defaultVideoPlaybackMode.get() == VideoPlaybackMode.PIP && !isKnownAudioLaunch(intent),
+    )
+  }
+
+  private fun maybeEnterDefaultPip() {
+    if (!::pipHelper.isInitialized || !ownsPlaybackSession() || isFinishing || isDestroyed || isUserFinishing) return
+    if (!videoPlaybackLaunchState.consumePipEntry(
+        mediaReady = isReady || (isNativeEngineActive() && nativeEngine.snapshot.value.isReady),
+        isAudio = viewModel.isAudioOnly.value || isCurrentMediaKnownAudio(),
+        isInPip = isInPictureInPictureMode,
+        isForeground = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && hasWindowFocus(),
+      )
+    ) return
+    // A denied PiP request leaves normal fullscreen playback available. The request is
+    // consumed once so expanding PiP or returning from system UI cannot immediately shrink it.
+    enterPipModeHidingOverlay()
+  }
+
   /**
    * Called when Picture-in-Picture mode changes.
    * Updates UI visibility and window configuration.
@@ -6769,6 +6818,7 @@ class PlayerActivity :
     if (isInPictureInPictureMode) setVideoAmbientPresentationActive(false)
     pipHelper.onPictureInPictureModeChanged(isInPictureInPictureMode)
     if (isInPictureInPictureMode) {
+      videoPlaybackLaunchState.onPipEntered()
       pendingPipExitResolution = false
       wasInPipMode = true
       handledPipDismissal = false
@@ -8998,6 +9048,37 @@ class PlayerActivity :
   }
 
   companion object {
+    private var activePlayer = WeakReference<PlayerActivity>(null)
+
+    /** Deliver new in-app media directly to a visible PiP task without expanding it. */
+    fun launch(context: Context, intent: Intent) {
+      if (Looper.myLooper() != Looper.getMainLooper()) {
+        Handler(Looper.getMainLooper()).post { launch(context, intent) }
+        return
+      }
+      val player = activePlayer.get()
+      if (intent.component?.className == PlayerActivity::class.java.name && InAppVideoPlayback.shouldLaunch(intent)) {
+        InAppVideoPlayback.play(context, intent) {
+          if (player?.isNativeEngineActive() == true) player.nativeEngine.stop()
+          player?.finish()
+        }
+        return
+      }
+      if (intent.component?.className == PlayerActivity::class.java.name) InAppVideoPlayback.handoff()
+      if (intent.component?.className == PlayerActivity::class.java.name &&
+        intent.action == Intent.ACTION_VIEW &&
+        player != null && player.ownsPlaybackSession() &&
+        !player.isFinishing && !player.isDestroyed && !player.isUserFinishing &&
+        player.isInPictureInPictureMode &&
+        player.playerPreferences.defaultVideoPlaybackMode.get() == VideoPlaybackMode.PIP &&
+        !player.isKnownAudioLaunch(intent)
+      ) {
+        player.handleNewIntent(Intent(intent))
+        return
+      }
+      context.startActivity(intent)
+    }
+
     /**
      * Intent action used to return playback result data to the calling activity.
      */

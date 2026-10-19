@@ -59,6 +59,7 @@ import app.infinity.mpvz.ui.icons.Icon
 import app.infinity.mpvz.ui.icons.Icons
 import app.infinity.mpvz.ui.player.NotificationStyle
 import app.infinity.mpvz.ui.player.PlayerOrientation
+import app.infinity.mpvz.ui.player.VideoPlaybackMode
 import app.infinity.mpvz.ui.player.screenshot.ScreenshotFormat
 import app.infinity.mpvz.ui.preferences.components.SwitchPreference
 import app.infinity.mpvz.ui.utils.LocalBackStack
@@ -155,6 +156,27 @@ object PlayerPreferencesScreen : Screen {
           }
           item {
             PreferenceCard {
+              val defaultVideoPlaybackMode by preferences.defaultVideoPlaybackMode.collectAsState()
+              ListPreference(
+                modifier = Modifier.settingsSearchTarget(R.string.pref_video_playback_mode_title),
+                value = defaultVideoPlaybackMode,
+                onValueChange = preferences.defaultVideoPlaybackMode::set,
+                values = VideoPlaybackMode.entries.filter {
+                  it != VideoPlaybackMode.PIP || context.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+                },
+                valueToText = { AnnotatedString(resources.getString(it.titleRes)) },
+                title = { Text(stringResource(R.string.pref_video_playback_mode_title)) },
+                summary = {
+                  Text(
+                    stringResource(defaultVideoPlaybackMode.titleRes) + " · " +
+                      stringResource(R.string.pref_video_playback_mode_summary),
+                    color = MaterialTheme.colorScheme.outline,
+                  )
+                },
+              )
+
+              PreferenceDivider()
+
               val orientation by preferences.orientation.collectAsState()
               ListPreference(
                 modifier = Modifier.settingsSearchTarget(R.string.pref_player_orientation),

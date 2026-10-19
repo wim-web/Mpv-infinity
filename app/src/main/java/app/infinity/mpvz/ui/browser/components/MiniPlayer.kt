@@ -73,6 +73,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -87,6 +88,7 @@ import app.infinity.mpvz.ui.icons.Icon
 import app.infinity.mpvz.ui.icons.Icons
 import app.infinity.mpvz.ui.player.DeclaredPlaybackMediaKind
 import app.infinity.mpvz.ui.player.MediaPlaybackService
+import app.infinity.mpvz.ui.player.InAppVideoPlayback
 import app.infinity.mpvz.ui.player.PlaybackPhase
 import app.infinity.mpvz.ui.player.PlaybackSession
 import app.infinity.mpvz.ui.player.PlayerActivity
@@ -109,6 +111,8 @@ fun MiniPlayer(modifier: Modifier = Modifier) {
   val sessionState by PlaybackSession.state.collectAsStateWithLifecycle()
   val playerPreferences: PlayerPreferences = koinInject()
   val enableVideoMiniPlayer by playerPreferences.enableVideoMiniPlayer.collectAsState()
+  val inAppPlaybackActive by InAppVideoPlayback.active.collectAsStateWithLifecycle()
+  val videoMiniPlayerEnabled = enableVideoMiniPlayer || inAppPlaybackActive
 
   val backstack = LocalBackStack.current
   val currentScreen = backstack.lastOrNull()
@@ -131,9 +135,9 @@ fun MiniPlayer(modifier: Modifier = Modifier) {
       DeclaredPlaybackMediaKind.UNKNOWN -> !hasRealVideo && (hasAlbumArt || tracks.any { it.isAudio })
     }
 
-  val isMiniPlayerAllowed = isAudioOnlyItem || enableVideoMiniPlayer
+  val isMiniPlayerAllowed = isAudioOnlyItem || videoMiniPlayerEnabled
 
-  val isMediaActive = isServiceRunning && currentItem != null &&
+  val isMediaActive = (isServiceRunning || inAppPlaybackActive) && currentItem != null &&
     !isSettingsScreen &&
     isMiniPlayerAllowed &&
     sessionState.phase != PlaybackPhase.IDLE &&
@@ -155,10 +159,10 @@ fun MiniPlayer(modifier: Modifier = Modifier) {
   ) {
     MiniPlayerContent(
       context = context,
-      enableVideoMiniPlayer = enableVideoMiniPlayer,
+      enableVideoMiniPlayer = videoMiniPlayerEnabled,
       isAudioOnlyItem = isAudioOnlyItem,
       hasRealVideo = hasRealVideo,
-      detachedPlaybackActive = isServiceRunning,
+      detachedPlaybackActive = isServiceRunning || inAppPlaybackActive,
     )
   }
 }
@@ -189,7 +193,9 @@ private fun MiniPlayerContent(
       ?: currentItem?.title?.takeIf { it.isNotBlank() }
       ?: "Media Track"
 
-  val isVideoMode = detachedPlaybackActive && hasRealVideo && !isAudioOnlyItem && enableVideoMiniPlayer
+  val isVideoMode = detachedPlaybackActive &&
+    (hasRealVideo || currentItem?.declaredMediaKind() == DeclaredPlaybackMediaKind.VIDEO) &&
+    !isAudioOnlyItem && enableVideoMiniPlayer
 
   DisposableEffect(isVideoMode) {
     if (isVideoMode) {
@@ -223,7 +229,7 @@ private fun MiniPlayerContent(
         putExtra("launch_source", "mini_player")
         flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
       }
-      context.startActivity(intent)
+      PlayerActivity.launch(context, intent)
       if (context is Activity) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
           context.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN, R.anim.slide_in_up, 0)
@@ -237,7 +243,9 @@ private fun MiniPlayerContent(
 
   val dismissPlayer = remember(context) {
     {
-      context.startService(
+      if (InAppVideoPlayback.active.value) {
+        InAppVideoPlayback.stop()
+      } else context.startService(
         Intent(context, MediaPlaybackService::class.java).setAction(
           MediaPlaybackService.ACTION_NOTIFICATION_STOP,
         ),
@@ -274,7 +282,7 @@ private fun MiniPlayerContent(
         )
       }
       .clip(RoundedCornerShape(20.dp))
-      .clickable { launchPlayer() },
+      .then(if (isVideoMode) Modifier else Modifier.clickable { launchPlayer() }),
     color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f),
     tonalElevation = 8.dp,
     shadowElevation = 10.dp,
@@ -322,7 +330,7 @@ private fun MiniPlayerContent(
                       PlaybackSession.bindSurface(
                         surface = holder.surface,
                         owner = this@apply,
-                        ownerIsActive = { MediaPlaybackService.isForegroundActive() },
+                        ownerIsActive = { MediaPlaybackService.isForegroundActive() || InAppVideoPlayback.active.value },
                       )
                     if (attached) PlaybackSession.setPropertyBoolean("sub-visibility", false)
                   }
@@ -346,6 +354,7 @@ private fun MiniPlayerContent(
                 })
               }
             },
+            update = { it.keepScreenOn = isPlaying },
           )
         }
 
@@ -367,7 +376,7 @@ private fun MiniPlayerContent(
             )
           }
           Text(
-            text = if (isPlaying) "Playing Video" else "Paused",
+            text = stringResource(if (isPlaying) R.string.in_app_player_playing else R.string.in_app_player_paused),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -381,7 +390,9 @@ private fun MiniPlayerContent(
         ) {
           IconButton(
             onClick = {
-              context.startService(
+              if (InAppVideoPlayback.active.value) {
+                InAppVideoPlayback.setPlaying(!isPlaying)
+              } else context.startService(
                 Intent(context, MediaPlaybackService::class.java).setAction(
                   MediaPlaybackService.ACTION_NOTIFICATION_PLAY_PAUSE,
                 ),
@@ -401,6 +412,15 @@ private fun MiniPlayerContent(
                 modifier = Modifier.size(26.dp),
               )
             }
+          }
+
+          IconButton(onClick = { launchPlayer() }, modifier = Modifier.size(36.dp)) {
+            Icon(
+              imageVector = Icons.RoundedFilled.Fullscreen,
+              contentDescription = stringResource(R.string.in_app_player_fullscreen),
+              tint = MaterialTheme.colorScheme.onSurface,
+              modifier = Modifier.size(24.dp),
+            )
           }
 
           IconButton(

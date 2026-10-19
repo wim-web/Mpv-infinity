@@ -174,7 +174,7 @@ object StreamScreen : Screen {
       if (stream.isExternal) {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(stream.url)))
       } else if ((stream.url.startsWith("http://", ignoreCase = true) || stream.url.startsWith("https://", ignoreCase = true)) && stream.isPlayable) {
-        context.startActivity(Intent(context, PlayerActivity::class.java).apply {
+        PlayerActivity.launch(context, Intent(context, PlayerActivity::class.java).apply {
           action = Intent.ACTION_VIEW
           data = Uri.parse(stream.url)
           putExtra(Intent.EXTRA_STREAM, Uri.parse(stream.url))

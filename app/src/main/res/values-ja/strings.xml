@@ -163,6 +163,14 @@
   <string name="pref_layout_reset_summary">カスタマイズしたプレーヤー操作の配置がすべてデフォルト位置に戻ります</string>
   <string name="pref_player">プレーヤー</string>
   <string name="pref_player_summary">画面の向き、ジェスチャー、操作</string>
+  <string name="pref_video_playback_mode_title">動画再生の開始モード</string>
+  <string name="pref_video_playback_mode_summary">別の動画を選んだときも、このモードで再生します</string>
+  <string name="pref_video_playback_mode_fullscreen">全画面</string>
+  <string name="pref_video_playback_mode_pip">ピクチャーインピクチャー（PiP）</string>
+  <string name="pref_video_playback_mode_in_app">アプリ内</string>
+  <string name="in_app_player_fullscreen">全画面で表示</string>
+  <string name="in_app_player_playing">動画を再生中</string>
+  <string name="in_app_player_paused">一時停止中</string>
   <string name="pref_player_orientation">画面の向き</string>
   <string name="pref_player_orientation_free">自由</string>
   <string name="pref_player_orientation_video">動画に合わせる</string>

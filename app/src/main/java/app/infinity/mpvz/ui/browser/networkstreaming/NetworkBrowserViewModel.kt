@@ -249,7 +249,7 @@ class NetworkBrowserViewModel(
     val fallbackMimeType = if (file.isPlayableNetworkAudio()) "audio/*" else "video/*"
     intent.setDataAndType(uri, file.mimeType ?: fallbackMimeType)
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    application.startActivity(intent)
+    PlayerActivity.launch(application, intent)
   }
 
   private fun currentDirectoryPlayableFiles(clickedFile: NetworkFile): List<NetworkFile> {

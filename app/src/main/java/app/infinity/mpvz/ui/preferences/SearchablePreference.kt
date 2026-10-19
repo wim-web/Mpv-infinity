@@ -297,6 +297,15 @@ object SearchablePreferences {
       )
       add(
         SearchablePreference(
+          titleRes = R.string.pref_video_playback_mode_title,
+          summaryRes = R.string.pref_video_playback_mode_summary,
+          keywords = listOf("video", "default", "fullscreen", "pip", "picture in picture", "in app", "mini player", "全画面", "再生", "アプリ内"),
+          category = "Player",
+          screen = PlayerPreferencesScreen,
+        ),
+      )
+      add(
+        SearchablePreference(
           titleRes = R.string.pref_player_orientation,
           keywords = listOf("orientation", "landscape", "portrait", "rotate", "screen"),
           category = "Player",

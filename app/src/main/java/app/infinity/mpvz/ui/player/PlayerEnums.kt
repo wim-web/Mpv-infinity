@@ -14,6 +14,14 @@ import app.infinity.mpvz.R
 import app.infinity.mpvz.preferences.DecoderPreferences
 import app.infinity.mpvz.preferences.preference.Preference
 
+enum class VideoPlaybackMode(
+  @StringRes val titleRes: Int,
+) {
+  FULLSCREEN(R.string.pref_video_playback_mode_fullscreen),
+  PIP(R.string.pref_video_playback_mode_pip),
+  IN_APP(R.string.pref_video_playback_mode_in_app),
+}
+
 enum class PlayerOrientation(
   @StringRes val titleRes: Int,
 ) {

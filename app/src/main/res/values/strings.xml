@@ -220,6 +220,14 @@
   <string name="pref_layout_reset_summary">All customized player control layouts will be reset to default positions</string>
   <string name="pref_player">Player</string>
   <string name="pref_player_summary">Orientation, gestures and controls</string>
+  <string name="pref_video_playback_mode_title">Default video playback mode</string>
+  <string name="pref_video_playback_mode_summary">Open selected videos in this mode, including when switching videos</string>
+  <string name="pref_video_playback_mode_fullscreen">Fullscreen</string>
+  <string name="pref_video_playback_mode_pip">Picture-in-Picture (PiP)</string>
+  <string name="pref_video_playback_mode_in_app">In app</string>
+  <string name="in_app_player_fullscreen">Open fullscreen</string>
+  <string name="in_app_player_playing">Playing video</string>
+  <string name="in_app_player_paused">Paused</string>
   <string name="pref_player_orientation">Orientation</string>
   <string name="pref_player_orientation_free">Free</string>
   <string name="pref_player_orientation_video">Video</string>

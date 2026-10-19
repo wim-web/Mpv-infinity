@@ -54,7 +54,7 @@ class TorrentSelectionActivity : AppCompatActivity() {
     Log.i(DIAG_TAG, "torrent selection entry sourceKind=${source?.let { if (it.startsWith("http")) "http" else if (it.startsWith("magnet")) "magnet" else "other" } ?: "none"}")
     if (source.isDirectPlayableUrl()) {
       Log.i(DIAG_TAG, "direct playback dispatch urlHost=${runCatching { Uri.parse(source).host }.getOrNull()}")
-      startActivity(Intent(this, PlayerActivity::class.java).apply {
+      PlayerActivity.launch(this, Intent(this, PlayerActivity::class.java).apply {
         action = Intent.ACTION_VIEW
         data = Uri.parse(source)
         putExtra(Intent.EXTRA_STREAM, Uri.parse(source))
@@ -139,7 +139,7 @@ class TorrentSelectionActivity : AppCompatActivity() {
         putExtra("headers", request.headers.entries.flatMap { listOf(it.key, it.value) }.toTypedArray())
       }
     }
-    startActivity(playbackIntent)
+    PlayerActivity.launch(this, playbackIntent)
     // Keep this picker underneath the player so Back returns to the episode list instead of
     // dropping all the way to the stream home screen.
   }

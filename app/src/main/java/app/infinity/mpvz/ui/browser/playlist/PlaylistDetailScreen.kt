@@ -286,7 +286,7 @@ data class PlaylistDetailScreen(
           putExtra("title", item.playlistItem.fileName)
           buildM3UHeadersExtra(playlist, item.playlistItem)?.let { putExtra("headers", it) }
         }
-      context.startActivity(intent)
+      PlayerActivity.launch(context, intent)
     }
 
     val navigationBarHeight = app.infinity.mpvz.ui.browser.LocalNavigationBarHeight.current
