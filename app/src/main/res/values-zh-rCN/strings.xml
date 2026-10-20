@@ -1105,7 +1105,6 @@
   <string name="btn_label_shuffle">随机播放</string>
   <string name="btn_label_mirror">水平翻转</string>
   <string name="btn_label_vertical_flip">垂直翻转</string>
-  <string name="btn_label_ab_loop">A-B 循环</string>
   <string name="btn_label_custom_skip">自定义跳过</string>
   <string name="btn_label_background_playback">后台播放</string>
   <string name="btn_label_ambient">环境光模式</string>
@@ -1323,7 +1322,6 @@
   <string name="ui_take_screenshot">截取屏幕</string>
   <string name="ui_next_frame">下一帧</string>
   <string name="ui_vertical_flip">垂直翻转</string>
-  <string name="ui_clear_loop">清除循环</string>
   <string name="ui_ambience_mode">环境光模式</string>
   <string name="ui_time_and_network">时间和网络</string>
   <string name="ui_slide_to_unlock">滑动解锁</string>
@@ -1870,29 +1868,6 @@
   <string name="lyrics_select_language">选择目标语言</string>
 
   <!-- Clip -->
-  <string name="clip_action">创建片段</string>
-  <string name="clip_options">片段选项</string>
-  <string name="clip_crop_action">裁剪并创建片段</string>
-  <string name="clip_mark_start">标记开始</string>
-  <string name="clip_mark_end">标记结束</string>
-  <string name="clip_crop">裁剪</string>
-  <string name="clip_save">保存片段</string>
-  <string name="clip_cancel">取消</string>
-  <string name="clip_done">完成</string>
-  <string name="clip_clear">清除片段</string>
-  <string name="clip_start_time">开始：%1$s</string>
-  <string name="clip_end_time">结束：%1$s</string>
-  <string name="clip_end_not_set">结束：未设置</string>
-  <string name="clip_crop_size">裁剪：%1$d × %2$d</string>
-  <string name="clip_crop_full_frame">裁剪：完整画面</string>
-  <string name="clip_select_crop">调整边框大小以保留需要的区域</string>
-  <string name="clip_exporting">正在创建片段… %1$d%%</string>
-  <string name="clip_cancelling">正在取消片段…</string>
-  <string name="clip_saved">已保存 %1$s</string>
-  <string name="clip_invalid_range">请在开始点之后标记结束点</string>
-  <string name="clip_video_unavailable">视频尺寸暂不可用</string>
-  <string name="clip_export_busy">已有另一个片段正在创建</string>
-  <string name="clip_export_failed">片段创建失败：%1$s</string>
 
   <!-- Seerr (Overseerr / Jellyseerr) Requests & Discover -->
   <string name="seerr_requests">请求</string>

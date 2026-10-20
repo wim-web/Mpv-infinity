@@ -1111,7 +1111,6 @@
   <string name="btn_label_shuffle">シャッフル</string>
   <string name="btn_label_mirror">左右反転</string>
   <string name="btn_label_vertical_flip">上下反転</string>
-  <string name="btn_label_ab_loop">A-Bリピート</string>
   <string name="btn_label_custom_skip">カスタムスキップ</string>
   <string name="btn_label_background_playback">バックグラウンド再生</string>
   <string name="btn_label_ambient">アンビエントモード</string>
@@ -1329,7 +1328,6 @@
   <string name="ui_take_screenshot">スクリーンショットを撮影</string>
   <string name="ui_next_frame">次のフレーム</string>
   <string name="ui_vertical_flip">上下反転</string>
-  <string name="ui_clear_loop">ループを解除</string>
   <string name="ui_ambience_mode">アンビエントモード</string>
   <string name="ui_time_and_network">時刻とネットワーク</string>
   <string name="ui_slide_to_unlock">スライドしてロック解除</string>
@@ -1876,29 +1874,6 @@
   <string name="lyrics_select_language">翻訳先言語を選択</string>
 
   <!-- Clip -->
-  <string name="clip_action">クリップを作成</string>
-  <string name="clip_options">クリップのオプション</string>
-  <string name="clip_crop_action">切り抜いてクリップを作成</string>
-  <string name="clip_mark_start">開始位置をマーク</string>
-  <string name="clip_mark_end">終了位置をマーク</string>
-  <string name="clip_crop">切り抜き</string>
-  <string name="clip_save">クリップを保存</string>
-  <string name="clip_cancel">キャンセル</string>
-  <string name="clip_done">完了</string>
-  <string name="clip_clear">クリップをクリア</string>
-  <string name="clip_start_time">開始: %1$s</string>
-  <string name="clip_end_time">終了: %1$s</string>
-  <string name="clip_end_not_set">終了: 未設定</string>
-  <string name="clip_crop_size">切り抜き: %1$d × %2$d</string>
-  <string name="clip_crop_full_frame">切り抜き: フレーム全体</string>
-  <string name="clip_select_crop">残す範囲に合わせて枠のサイズを変更してください</string>
-  <string name="clip_exporting">クリップを作成中… %1$d%%</string>
-  <string name="clip_cancelling">クリップをキャンセル中…</string>
-  <string name="clip_saved">%1$s を保存しました</string>
-  <string name="clip_invalid_range">開始位置より後に終了位置をマークしてください</string>
-  <string name="clip_video_unavailable">動画のサイズはまだ利用できません</string>
-  <string name="clip_export_busy">別のクリップを作成中です</string>
-  <string name="clip_export_failed">クリップの作成に失敗しました: %1$s</string>
 
   <!-- Seerr (Overseerr / Jellyseerr) Requests & Discover -->
   <string name="seerr_requests">リクエスト</string>
@@ -2049,4 +2024,13 @@
   <string name="downloads_episodes_queued">%1$d 話をダウンロードキューに追加しました</string>
   <string name="downloads_play">再生</string>
   <string name="downloads_open_downloads">ダウンロードを開く</string>
+  <string name="mini_player_seek">再生位置</string>
+  <string name="mini_player_seek_hint">左右にスライドでシーク</string>
+  <string name="mini_player_no_seek">シークできません</string>
+  <string name="mini_player_stop">再生を停止</string>
+  <string name="mini_player_pause">一時停止</string>
+  <string name="mini_player_next">次のメディア</string>
+  <string name="mini_player_repeat_off">OFF</string>
+  <string name="mini_player_repeat_one">これだけ</string>
+  <string name="mini_player_repeat_all">LIST</string>
 </resources>

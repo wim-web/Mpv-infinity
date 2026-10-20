@@ -1103,7 +1103,6 @@ Bitte starten Sie die App neu, damit alle Änderungen wirksam werden.</string>
   <string name="btn_label_shuffle">Zufallswiedergabe</string>
   <string name="btn_label_mirror">Horizontal spiegeln</string>
   <string name="btn_label_vertical_flip">Vertikal spiegeln</string>
-  <string name="btn_label_ab_loop">A-B-Schleife</string>
   <string name="btn_label_custom_skip">Benutzerdefinierter Sprung</string>
   <string name="btn_label_background_playback">Hintergrundwiedergabe</string>
   <string name="btn_label_ambient">Umgebungsmodus</string>
@@ -1321,7 +1320,6 @@ Bitte starten Sie die App neu, damit alle Änderungen wirksam werden.</string>
   <string name="ui_take_screenshot">Screenshot aufnehmen</string>
   <string name="ui_next_frame">Nächster Frame</string>
   <string name="ui_vertical_flip">Vertikal spiegeln</string>
-  <string name="ui_clear_loop">Schleife löschen</string>
   <string name="ui_ambience_mode">Umgebungsmodus</string>
   <string name="ui_time_and_network">Zeit und Netzwerk</string>
   <string name="ui_slide_to_unlock">Zum Entsperren schieben</string>
@@ -1868,29 +1866,6 @@ Bitte starten Sie die App neu, damit alle Änderungen wirksam werden.</string>
   <string name="lyrics_select_language">Zielsprache auswählen</string>
 
   <!-- Clip -->
-  <string name="clip_action">Clip erstellen</string>
-  <string name="clip_options">Clip-Optionen</string>
-  <string name="clip_crop_action">Zuschneiden &amp; Clip erstellen</string>
-  <string name="clip_mark_start">Start markieren</string>
-  <string name="clip_mark_end">Ende markieren</string>
-  <string name="clip_crop">Zuschneiden</string>
-  <string name="clip_save">Clip speichern</string>
-  <string name="clip_cancel">Abbrechen</string>
-  <string name="clip_done">Fertig</string>
-  <string name="clip_clear">Clip löschen</string>
-  <string name="clip_start_time">Start: %1$s</string>
-  <string name="clip_end_time">Ende: %1$s</string>
-  <string name="clip_end_not_set">Ende: Nicht festgelegt</string>
-  <string name="clip_crop_size">Zuschnitt: %1$d × %2$d</string>
-  <string name="clip_crop_full_frame">Zuschnitt: Vollbild</string>
-  <string name="clip_select_crop">Rahmen auf den gewünschten Bereich anpassen</string>
-  <string name="clip_exporting">Clip wird erstellt… %1$d%%</string>
-  <string name="clip_cancelling">Clip wird abgebrochen…</string>
-  <string name="clip_saved">%1$s gespeichert</string>
-  <string name="clip_invalid_range">Markiere einen Endpunkt nach dem Startpunkt</string>
-  <string name="clip_video_unavailable">Videoabmessungen sind noch nicht verfügbar</string>
-  <string name="clip_export_busy">Ein anderer Clip wird bereits erstellt</string>
-  <string name="clip_export_failed">Clip fehlgeschlagen: %1$s</string>
 
   <!-- Seerr (Overseerr / Jellyseerr) Requests & Discover -->
   <string name="seerr_requests">Anfragen</string>

@@ -29,27 +29,10 @@ object NavigationBarState {
 
   var isDualPaneFolderSelected: Boolean by mutableStateOf(false)
 
-  // Mini player coordination state (published by MiniPlayer/MainScreen so the
-  // browser layout can adapt when the mini player is on screen).
+  // Published by MiniPlayer so the root layout can consume its navigation inset.
   var isMiniPlayerVisible: Boolean by mutableStateOf(false)
 
-  // True while the floating pill nav bar is actually on screen (MainScreen on top
-  // and not hidden). Lets the mini player drop to the very bottom when there is no
-  // nav bar below it (e.g. pushed video list screens).
-  var isNavBarVisible: Boolean by mutableStateOf(false)
-
-  var navbarLeftOffset: Dp by mutableStateOf(0.dp)
-
-  var navbarWidth: Dp by mutableStateOf(320.dp)
-
-  // Shared portrait clearances for the floating browser layers.
   val navigationBarClearance: Dp = 88.dp
-  val selectionBarClearance: Dp = 100.dp
-
-  // Vertical space the mini player needs to clear from the bottom of the screen in
-  // screens that sit below it without a nav bar (FABs/list content).
-  val miniPlayerClearance: Dp
-    get() = if (isMiniPlayerVisible) 96.dp else 0.dp
 
   var shouldHideNavigationBar: Boolean by mutableStateOf(false)
     private set
@@ -70,8 +53,6 @@ object NavigationBarState {
     isInSelectionMode = inSelectionMode
     onlyVideosSelected = onlyVideos
     // Selection actions replace the navigation pill instead of stacking above it.
-    // Publish the clearance state immediately; MainScreen still animates the actual nav out.
-    if (inSelectionMode) isNavBarVisible = false
     shouldHideNavigationBar = inSelectionMode
   }
 

@@ -52,7 +52,6 @@ import app.infinity.mpvz.preferences.preference.Preference
 import app.infinity.mpvz.presentation.Screen
 import app.infinity.mpvz.presentation.components.ConfirmDialog
 import app.infinity.mpvz.ui.icons.Icons
-import app.infinity.mpvz.ui.player.controls.components.AbLoopIcon
 import app.infinity.mpvz.ui.preferences.components.PlayerButtonChip
 import app.infinity.mpvz.ui.utils.LocalBackStack
 import app.infinity.mpvz.ui.utils.popSafely
@@ -495,29 +494,22 @@ private fun IconsLegend() {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.wrapContentWidth(),
           ) {
-            if (button == PlayerButton.AB_LOOP) {
-              AbLoopIcon(
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-            } else {
-              val modifier =
-                if (button == PlayerButton.VERTICAL_FLIP) {
-                  Modifier.rotate(90f)
-                } else {
-                  Modifier
-                }
+            val modifier =
+              if (button == PlayerButton.VERTICAL_FLIP) {
+                Modifier.rotate(90f)
+              } else {
+                Modifier
+              }
 
-              AppSymbolIcon(
-                imageVector = button.icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier =
-                  Modifier
-                    .size(20.dp)
-                    .then(modifier),
-              )
-            }
+            AppSymbolIcon(
+              imageVector = button.icon,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier =
+                Modifier
+                  .size(20.dp)
+                  .then(modifier),
+            )
 
             Text(
               text =

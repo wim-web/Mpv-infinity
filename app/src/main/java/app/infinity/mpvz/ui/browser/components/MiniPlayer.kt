@@ -17,67 +17,29 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.infinity.mpvz.R
 import app.infinity.mpvz.domain.thumbnail.EmbeddedArtworkResolver
@@ -97,12 +59,9 @@ import app.infinity.mpvz.ui.player.declaredMediaKind
 import app.infinity.mpvz.ui.player.toObject
 import app.infinity.mpvz.ui.utils.LocalBackStack
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import org.koin.compose.koinInject
-import kotlin.math.abs
-import kotlin.math.roundToInt
 
 @Composable
 fun MiniPlayer(modifier: Modifier = Modifier) {
@@ -145,8 +104,7 @@ fun MiniPlayer(modifier: Modifier = Modifier) {
     sessionState.phase != PlaybackPhase.UNINITIALIZED &&
     sessionState.phase != PlaybackPhase.ERROR
 
-  // Keep the mini player alive while browser selection mode is active. Its outer
-  // placement is lifted above the selection actions instead of hiding/overlapping.
+  // The root layout reserves the measured player height, including during selection.
   SideEffect {
     NavigationBarState.isMiniPlayerVisible = isMediaActive
   }
@@ -155,25 +113,22 @@ fun MiniPlayer(modifier: Modifier = Modifier) {
     visible = isMediaActive,
     enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
     exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-    modifier = modifier,
   ) {
-    MiniPlayerContent(
-      context = context,
-      enableVideoMiniPlayer = videoMiniPlayerEnabled,
-      isAudioOnlyItem = isAudioOnlyItem,
-      hasRealVideo = hasRealVideo,
-      detachedPlaybackActive = isServiceRunning || inAppPlaybackActive,
-    )
+    Box(modifier) {
+      MiniPlayerContent(
+        context = context,
+        isAudioOnlyItem = isAudioOnlyItem,
+        hasRealVideo = hasRealVideo,
+      )
+    }
   }
 }
 
 @Composable
 private fun MiniPlayerContent(
   context: Context,
-  enableVideoMiniPlayer: Boolean,
   isAudioOnlyItem: Boolean,
   hasRealVideo: Boolean,
-  detachedPlaybackActive: Boolean,
 ) {
   val sessionState by PlaybackSession.state.collectAsStateWithLifecycle()
   val queueState by PlaybackSession.queue.collectAsStateWithLifecycle()
@@ -182,9 +137,8 @@ private fun MiniPlayerContent(
   val rawMediaTitle by PlaybackSession.propString["media-title"].collectAsStateWithLifecycle()
   val duration by PlaybackSession.propInt["duration"].collectAsStateWithLifecycle()
   val positionState = PlaybackSession.propInt["time-pos"].collectAsStateWithLifecycle()
-  val videoAspectRaw by PlaybackSession.propDouble["video-params/aspect"].collectAsStateWithLifecycle()
-  val videoWidth by PlaybackSession.propLong["video-params/w"].collectAsStateWithLifecycle()
-  val videoHeight by PlaybackSession.propLong["video-params/h"].collectAsStateWithLifecycle()
+  val seekable by PlaybackSession.propBoolean["seekable"].collectAsStateWithLifecycle()
+  val preferences: PlayerPreferences = koinInject()
 
   val isPlaying = paused == false
   val title =
@@ -193,9 +147,10 @@ private fun MiniPlayerContent(
       ?: currentItem?.title?.takeIf { it.isNotBlank() }
       ?: "Media Track"
 
-  val isVideoMode = detachedPlaybackActive &&
-    (hasRealVideo || currentItem?.declaredMediaKind() == DeclaredPlaybackMediaKind.VIDEO) &&
-    !isAudioOnlyItem && enableVideoMiniPlayer
+  // Visibility already checks playback ownership. Keep the surface alive through the exit
+  // animation so opening fullscreen can take ownership before the mini player detaches it.
+  val isVideoMode =
+    (hasRealVideo || currentItem?.declaredMediaKind() == DeclaredPlaybackMediaKind.VIDEO) && !isAudioOnlyItem
 
   DisposableEffect(isVideoMode) {
     if (isVideoMode) {
@@ -215,12 +170,7 @@ private fun MiniPlayerContent(
       artworkUri = if (isAudioOnlyItem) currentItem?.artworkUri else null,
     )
 
-  val coroutineScope = rememberCoroutineScope()
-  var offsetX by remember { mutableFloatStateOf(0f) }
-  val density = LocalDensity.current
-  val dismissThresholdPx = with(density) { 100.dp.toPx() }
-
-  val launchPlayer = remember(context) {
+  val launchPlayer = remember(context, isAudioOnlyItem) {
     {
       val intent = Intent(context, PlayerActivity::class.java).apply {
         action = MediaPlaybackService.ACTION_OPEN_PLAYER
@@ -241,7 +191,7 @@ private fun MiniPlayerContent(
     }
   }
 
-  val dismissPlayer = remember(context) {
+  val dismissPlayer: () -> Unit = remember(context) {
     {
       if (InAppVideoPlayback.active.value) {
         InAppVideoPlayback.stop()
@@ -253,323 +203,79 @@ private fun MiniPlayerContent(
     }
   }
 
-  Surface(
-    modifier = Modifier
-      .offset { IntOffset(offsetX.roundToInt(), 0) }
-      .pointerInput(Unit) {
-        detectHorizontalDragGestures(
-          onDragEnd = {
-            if (abs(offsetX) > dismissThresholdPx) {
-              dismissPlayer()
-            } else {
-              coroutineScope.launch {
-                androidx.compose.animation.core.Animatable(offsetX).animateTo(0f) {
-                  offsetX = value
-                }
-              }
-            }
-          },
-          onDragCancel = {
-            coroutineScope.launch {
-              androidx.compose.animation.core.Animatable(offsetX).animateTo(0f) {
-                offsetX = value
-              }
-            }
-          },
-          onHorizontalDrag = { _, dragAmount ->
-            offsetX += dragAmount
-          },
+  MiniPlayerBar(
+    playbackGeneration = sessionState.generation,
+    title = title,
+    playing = isPlaying,
+    positionSeconds = (positionState.value ?: 0).toFloat(),
+    durationSeconds = (duration ?: 0).toFloat(),
+    seekable = seekable == true,
+    repeatMode = queueState.repeatMode,
+    repeatEnabled = currentItem?.audiobook == null,
+    onSeek = { seconds ->
+      PlaybackSession.commandForGeneration(sessionState.generation, "seek", seconds.toString(), "absolute+exact")
+    },
+    onRepeat = { mode ->
+      preferences.repeatMode.set(mode)
+      PlaybackSession.setRepeatMode(mode)
+    },
+    onPlayPause = {
+      if (InAppVideoPlayback.active.value) {
+        InAppVideoPlayback.setPlaying(!isPlaying)
+      } else context.startService(
+        Intent(context, MediaPlaybackService::class.java).setAction(MediaPlaybackService.ACTION_NOTIFICATION_PLAY_PAUSE),
+      )
+    },
+    onNext = if (queueState.hasItems && PlaybackSession.hasNext()) {
+      {
+        if (InAppVideoPlayback.active.value) {
+          InAppVideoPlayback.playNext()
+        } else context.startService(
+          Intent(context, MediaPlaybackService::class.java).setAction(MediaPlaybackService.ACTION_NOTIFICATION_NEXT),
         )
       }
-      .clip(RoundedCornerShape(20.dp))
-      .then(if (isVideoMode) Modifier else Modifier.clickable { launchPlayer() }),
-    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f),
-    tonalElevation = 8.dp,
-    shadowElevation = 10.dp,
-  ) {
-    val primaryContainerColor = MaterialTheme.colorScheme.primaryContainer
+    } else null,
+    onOpen = launchPlayer,
+    onClose = dismissPlayer,
+    artwork = {
+      if (isVideoMode) {
+        AndroidView(
+          modifier = Modifier.fillMaxSize(),
+          factory = { viewContext ->
+            SurfaceView(viewContext).apply {
+              setZOrderMediaOverlay(true)
+              holder.addCallback(object : SurfaceHolder.Callback {
+                override fun surfaceCreated(holder: SurfaceHolder) {
+                  val attached = PlaybackSession.bindSurface(
+                    surface = holder.surface,
+                    owner = this@apply,
+                    ownerIsActive = { MediaPlaybackService.isForegroundActive() || InAppVideoPlayback.active.value },
+                  )
+                  if (attached) PlaybackSession.setPropertyBoolean("sub-visibility", false)
+                }
 
-    if (isVideoMode) {
-      // Calculate aspect ratio for video surface container
-      val aspect = videoAspectRaw?.toFloat()
-        ?: if ((videoWidth ?: 0L) > 0L && (videoHeight ?: 0L) > 0L) {
-          videoWidth!!.toFloat() / videoHeight!!.toFloat()
+                override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                  if (holder.surface.isValid) PlaybackSession.resizeSurface(width, height, owner = this@apply)
+                }
+
+                override fun surfaceDestroyed(holder: SurfaceHolder) {
+                  if (PlaybackSession.unbindSurface(this@apply)) PlaybackSession.setPropertyBoolean("sub-visibility", true)
+                }
+              })
+            }
+          },
+          update = { it.keepScreenOn = isPlaying },
+        )
+      } else {
+        val artworkImageBitmap = remember(coverArt) { coverArt?.asImageBitmap() }
+        if (artworkImageBitmap != null) {
+          Image(bitmap = artworkImageBitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         } else {
-          16f / 9f
-        }
-
-      // Constrain aspect ratio between 0.5 (portrait) and 2.4 (ultrawide)
-      val safeAspect = aspect.coerceIn(0.5f, 2.39f)
-
-      Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .height(76.dp)
-          .padding(4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        // Video MPV Surface View Container
-        Box(
-          modifier = Modifier
-            .fillMaxHeight()
-            .aspectRatio(safeAspect)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.Black),
-          contentAlignment = Alignment.Center,
-        ) {
-          AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { viewContext ->
-              SurfaceView(viewContext).apply {
-                // Render the video above the Compose window layers so the mini
-                // player's Surface/clip does not paint over the SurfaceView.
-                setZOrderMediaOverlay(true)
-                holder.addCallback(object : SurfaceHolder.Callback {
-                  override fun surfaceCreated(holder: SurfaceHolder) {
-                    val attached =
-                      PlaybackSession.bindSurface(
-                        surface = holder.surface,
-                        owner = this@apply,
-                        ownerIsActive = { MediaPlaybackService.isForegroundActive() || InAppVideoPlayback.active.value },
-                      )
-                    if (attached) PlaybackSession.setPropertyBoolean("sub-visibility", false)
-                  }
-
-                  override fun surfaceChanged(
-                    holder: SurfaceHolder,
-                    format: Int,
-                    width: Int,
-                    height: Int,
-                  ) {
-                    if (holder.surface.isValid) {
-                      PlaybackSession.resizeSurface(width, height, owner = this@apply)
-                    }
-                  }
-
-                  override fun surfaceDestroyed(holder: SurfaceHolder) {
-                    if (PlaybackSession.unbindSurface(this@apply)) {
-                      PlaybackSession.setPropertyBoolean("sub-visibility", true)
-                    }
-                  }
-                })
-              }
-            },
-            update = { it.keepScreenOn = isPlaying },
-          )
-        }
-
-        Spacer(modifier = Modifier.width(10.dp))
-
-        // Title and Status
-        Column(
-          modifier = Modifier.weight(1f),
-          verticalArrangement = Arrangement.Center,
-        ) {
-          key(currentItem?.stableId ?: currentItem?.originalUri) {
-            Text(
-              text = title,
-              style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-              color = MaterialTheme.colorScheme.onSurface,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-              modifier = Modifier.basicMarquee(),
-            )
-          }
-          Text(
-            text = stringResource(if (isPlaying) R.string.in_app_player_playing else R.string.in_app_player_paused),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-          )
-        }
-
-        // Control Buttons
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-          IconButton(
-            onClick = {
-              if (InAppVideoPlayback.active.value) {
-                InAppVideoPlayback.setPlaying(!isPlaying)
-              } else context.startService(
-                Intent(context, MediaPlaybackService::class.java).setAction(
-                  MediaPlaybackService.ACTION_NOTIFICATION_PLAY_PAUSE,
-                ),
-              )
-            },
-            modifier = Modifier.size(36.dp),
-          ) {
-            AnimatedContent(
-              targetState = isPlaying,
-              transitionSpec = { fadeIn() togetherWith fadeOut() },
-              label = "mini_video_play_pause",
-            ) { playing ->
-              Icon(
-                imageVector = if (playing) Icons.RoundedFilled.Pause else Icons.RoundedFilled.PlayArrow,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(26.dp),
-              )
-            }
-          }
-
-          IconButton(onClick = { launchPlayer() }, modifier = Modifier.size(36.dp)) {
-            Icon(
-              imageVector = Icons.RoundedFilled.Fullscreen,
-              contentDescription = stringResource(R.string.in_app_player_fullscreen),
-              tint = MaterialTheme.colorScheme.onSurface,
-              modifier = Modifier.size(24.dp),
-            )
-          }
-
-          IconButton(
-            onClick = { dismissPlayer() },
-            modifier = Modifier.size(32.dp),
-          ) {
-            Icon(
-              imageVector = Icons.RoundedFilled.Close,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.size(18.dp),
-            )
-          }
+          Icon(Icons.RoundedFilled.Audiotrack, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         }
       }
-    } else {
-      // Audio Mini Player View
-      Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .drawBehind {
-            val dur = duration?.toFloat() ?: 0f
-            val pos = positionState.value?.toFloat() ?: 0f
-            val progressFraction = if (dur > 0f) (pos / dur).coerceIn(0f, 1f) else 0f
-            if (progressFraction > 0f) {
-              drawRect(
-                color = primaryContainerColor.copy(alpha = 0.35f),
-                size = Size(
-                  width = size.width * progressFraction,
-                  height = size.height,
-                ),
-              )
-            }
-          }
-          .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        // Music Cover Art
-        Box(
-          modifier = Modifier
-            .size(48.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-          contentAlignment = Alignment.Center,
-        ) {
-          val artworkImageBitmap = remember(coverArt) { coverArt?.asImageBitmap() }
-          if (artworkImageBitmap != null) {
-            Image(
-              bitmap = artworkImageBitmap,
-              contentDescription = null,
-              contentScale = ContentScale.Crop,
-              modifier = Modifier.fillMaxSize(),
-            )
-          } else {
-            Icon(
-              imageVector = Icons.RoundedFilled.Audiotrack,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(24.dp),
-            )
-          }
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // Title & Track Status
-        Column(
-          modifier = Modifier.weight(1f),
-          verticalArrangement = Arrangement.Center,
-        ) {
-          key(currentItem?.stableId ?: currentItem?.originalUri) {
-            Text(
-              text = title,
-              style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-              color = MaterialTheme.colorScheme.onSurface,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-              modifier = Modifier.basicMarquee(),
-            )
-          }
-          Text(
-            text = if (isPlaying) "Playing" else "Paused",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-          )
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        // Play / Pause Action Button
-        IconButton(
-          onClick = {
-            context.startService(
-              Intent(context, MediaPlaybackService::class.java).setAction(
-                MediaPlaybackService.ACTION_NOTIFICATION_PLAY_PAUSE,
-              ),
-            )
-          },
-          modifier = Modifier.size(36.dp),
-        ) {
-          AnimatedContent(
-            targetState = isPlaying,
-            transitionSpec = { fadeIn() togetherWith fadeOut() },
-            label = "mini_play_pause",
-          ) { playing ->
-            Icon(
-              imageVector = if (playing) Icons.RoundedFilled.Pause else Icons.RoundedFilled.PlayArrow,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.onSurface,
-              modifier = Modifier.size(26.dp),
-            )
-          }
-        }
-
-        // Next Track Action Button
-        IconButton(
-          onClick = {
-            context.startService(
-              Intent(context, MediaPlaybackService::class.java).setAction(
-                MediaPlaybackService.ACTION_NOTIFICATION_NEXT,
-              ),
-            )
-          },
-          modifier = Modifier.size(36.dp),
-        ) {
-          Icon(
-            imageVector = Icons.RoundedFilled.SkipNext,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(24.dp),
-          )
-        }
-
-        // Close Action Button
-        IconButton(
-          onClick = { dismissPlayer() },
-          modifier = Modifier.size(32.dp),
-        ) {
-          Icon(
-            imageVector = Icons.RoundedFilled.Close,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp),
-          )
-        }
-      }
-    }
-  }
+    },
+  )
 }
 
 /**

@@ -74,10 +74,8 @@ import app.infinity.mpvz.ui.player.Panels
 import app.infinity.mpvz.ui.player.AmbientStyle
 import app.infinity.mpvz.ui.player.PlayerActivity
 import app.infinity.mpvz.ui.player.PlayerViewModel
-import app.infinity.mpvz.ui.player.clip.ClipOverlayView
 import app.infinity.mpvz.ui.player.Sheets
 import app.infinity.mpvz.ui.player.VideoAspect
-import app.infinity.mpvz.ui.player.controls.components.AbLoopIcon
 import app.infinity.mpvz.ui.player.controls.components.ControlsButton
 import app.infinity.mpvz.ui.player.controls.components.CurrentChapter
 import app.infinity.mpvz.ui.theme.controlColor as defaultControlColor
@@ -733,19 +731,6 @@ fun RenderPlayerButton(
       )
     }
 
-    PlayerButton.CLIP -> {
-      val clipOverlay = remember(activity) { ClipOverlayView.ensureAttached(activity) }
-      ControlsButton(
-        icon = button.icon,
-        onClick = {
-          if (clipOverlay.openClip()) onOpenPanel(Panels.Clip)
-        },
-        title = androidx.compose.ui.res.stringResource(app.infinity.mpvz.R.string.clip_action),
-        color = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.size(buttonSize),
-      )
-    }
-
     PlayerButton.EQUALIZER -> {
       val configOwned = isMpvOptionOwnedByConfig("af")
       ControlsButton(
@@ -910,181 +895,6 @@ fun RenderPlayerButton(
                 .size(20.dp)
                 .rotate(90f),
           )
-        }
-      }
-    }
-
-    PlayerButton.AB_LOOP -> {
-      val abLoop by viewModel.abLoopState.collectAsState()
-      val isExpanded = abLoop.isExpanded
-      val loopA = abLoop.a
-      val loopB = abLoop.b
-
-      AnimatedContent(
-        targetState = isExpanded && !compact,
-        transitionSpec = {
-          (fadeIn(animationSpec = tween(200)) + expandHorizontally(animationSpec = tween(250)))
-            .togetherWith(fadeOut(animationSpec = tween(200)) + shrinkHorizontally(animationSpec = tween(250)))
-            .using(SizeTransform(clip = false))
-        },
-        label = "ABLoopExpandCollapse",
-      ) { expanded ->
-        if (expanded) {
-          Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f),
-            border =
-              if (hideBackground) {
-                null
-              } else {
-                BorderStroke(
-                  1.dp,
-                  MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                )
-              },
-            modifier = Modifier.height(buttonSize),
-          ) {
-            Row(
-              horizontalArrangement = Arrangement.spacedBy(2.dp),
-              verticalAlignment = Alignment.CenterVertically,
-              modifier = Modifier.padding(horizontal = 4.dp),
-            ) {
-              // Point A Button - always transparent background
-              Surface(
-                shape = CircleShape,
-                color = if (loopA != null) MaterialTheme.colorScheme.tertiaryContainer else Color.Transparent,
-                modifier =
-                  Modifier
-                    .height(buttonSize - 4.dp)
-                    .widthIn(min = buttonSize - 4.dp)
-                    .clip(CircleShape)
-                    .clickable(onClick = { viewModel.setLoopA() }),
-              ) {
-                Box(contentAlignment = Alignment.Center) {
-                  Text(
-                    text = if (loopA != null) viewModel.formatTimestamp(loopA) else "A",
-                    style = MaterialTheme.typography.labelLarge,
-                    color =
-                      if (loopA != null) {
-                        MaterialTheme.colorScheme.onTertiaryContainer
-                      } else {
-                        if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface
-                      },
-                    modifier = Modifier.padding(horizontal = if (loopA != null) 8.dp else 0.dp),
-                  )
-                }
-              }
-
-              // Clear/Close Button - always has background
-              Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                modifier =
-                  Modifier
-                    .size(buttonSize - 4.dp)
-                    .clip(CircleShape)
-                    .clickable(onClick = {
-                      viewModel.clearABLoop()
-                      viewModel.toggleABLoopExpanded()
-                    }),
-              ) {
-                Box(contentAlignment = Alignment.Center) {
-                  AppSymbolIcon(
-                    imageVector = Icons.RoundedFilled.Close,
-                    contentDescription =
-                      androidx.compose.ui.res.stringResource(
-                        app.infinity.mpvz.R.string.ui_clear_loop,
-                      ),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(16.dp),
-                  )
-                }
-              }
-
-              // Point B Button - always transparent background
-              Surface(
-                shape = CircleShape,
-                color = if (loopB != null) MaterialTheme.colorScheme.tertiaryContainer else Color.Transparent,
-                modifier =
-                  Modifier
-                    .height(buttonSize - 4.dp)
-                    .widthIn(min = buttonSize - 4.dp)
-                    .clip(CircleShape)
-                    .clickable(onClick = { viewModel.setLoopB() }),
-              ) {
-                Box(contentAlignment = Alignment.Center) {
-                  Text(
-                    text = if (loopB != null) viewModel.formatTimestamp(loopB) else "B",
-                    style = MaterialTheme.typography.labelLarge,
-                    color =
-                      if (loopB != null) {
-                        MaterialTheme.colorScheme.onTertiaryContainer
-                      } else {
-                        if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface
-                      },
-                    modifier = Modifier.padding(horizontal = if (loopB != null) 8.dp else 0.dp),
-                  )
-                }
-              }
-            }
-          }
-        } else {
-          // Collapsed: Show the custom A-B loop icon
-          Surface(
-            shape = CircleShape,
-            color =
-              if (hideBackground) {
-                Color.Transparent
-              } else {
-                MaterialTheme.colorScheme.surfaceContainer.copy(
-                  alpha = 0.55f,
-                )
-              },
-            border =
-              if (hideBackground) {
-                null
-              } else {
-                BorderStroke(
-                  1.dp,
-                  MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                )
-              },
-            modifier =
-              Modifier
-                .size(buttonSize)
-                .clip(CircleShape)
-                .clickable(
-                  onClick = {
-                    clickEvent()
-                    if (compact) {
-                      when {
-                        loopA == null -> viewModel.setLoopA()
-                        loopB == null -> viewModel.setLoopB()
-                        else -> viewModel.clearABLoop()
-                      }
-                    } else {
-                      viewModel.toggleABLoopExpanded()
-                    }
-                  },
-                ),
-          ) {
-            Box(contentAlignment = Alignment.Center) {
-              AbLoopIcon(
-                modifier = Modifier.size(30.dp),
-                tint =
-                  if (loopA != null &&
-                    loopB != null
-                  ) {
-                    MaterialTheme.colorScheme.primary
-                  } else {
-                    MaterialTheme.colorScheme.onSurface
-                  },
-                isASet = loopA != null,
-                isBSet = loopB != null,
-              )
-            }
-          }
         }
       }
     }

@@ -13,7 +13,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -68,7 +67,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -84,7 +82,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.infinity.mpvz.preferences.SeekbarStyle
 import app.infinity.mpvz.ui.player.SkipSegment
-import app.infinity.mpvz.ui.player.clip.ClipEditorUiState
 import app.infinity.mpvz.ui.player.controls.LocalPlayerButtonsClickEvent
 import app.infinity.mpvz.ui.player.visualizer.AudioFeatures
 import app.infinity.mpvz.ui.player.visualizer.VisualizerPalette
@@ -298,8 +295,6 @@ internal fun SeekbarWithTimers(
   wavePalette: VisualizerPalette? = null,
   waveVolumeScale: Float = 1f,
   waveSheetOpen: Boolean = false,
-  loopStart: Float? = null,
-  loopEnd: Float? = null,
   bufferDuration: Float? = null,
   isPortrait: Boolean = false,
   applyHorizontalPadding: Boolean = true,
@@ -355,8 +350,6 @@ internal fun SeekbarWithTimers(
         wavePalette = wavePalette,
         waveVolumeScale = waveVolumeScale,
         waveSheetOpen = waveSheetOpen,
-        loopStart = loopStart,
-        loopEnd = loopEnd,
         bufferDuration = bufferDuration,
         onUserInteractionChange = { isUserInteracting = it },
         onUserPositionChange = { userPosition = it },
@@ -426,8 +419,6 @@ internal fun SeekbarWithTimers(
         wavePalette = wavePalette,
         waveVolumeScale = waveVolumeScale,
         waveSheetOpen = waveSheetOpen,
-        loopStart = loopStart,
-        loopEnd = loopEnd,
         bufferDuration = bufferDuration,
         onUserInteractionChange = { isUserInteracting = it },
         onUserPositionChange = { userPosition = it },
@@ -469,8 +460,6 @@ private fun SeekbarContent(
   wavePalette: VisualizerPalette? = null,
   waveVolumeScale: Float = 1f,
   waveSheetOpen: Boolean = false,
-  loopStart: Float?,
-  loopEnd: Float?,
   bufferDuration: Float?,
   onUserInteractionChange: (Boolean) -> Unit,
   onUserPositionChange: (Float) -> Unit,
@@ -486,7 +475,6 @@ private fun SeekbarContent(
   val isSeekerPressed by seekerInteractionSource.collectIsPressedAsState()
   val isSeekerDragged by seekerInteractionSource.collectIsDraggedAsState()
   val isVisuallyInteracting = isUserInteracting || isSeekerPressed || isSeekerDragged
-  val clipRange by ClipEditorUiState.state.collectAsState()
   val safeDuration = duration.takeIf { it.isFinite() && it > 0f } ?: 0f
   val seekerRange = 0f..safeDuration.coerceAtLeast(0.1f)
   val safeCommittedPosition =
@@ -593,8 +581,6 @@ private fun SeekbarContent(
             chapters = chapters,
             isPaused = paused,
             isScrubbing = isVisuallyInteracting,
-            loopStart = loopStart,
-            loopEnd = loopEnd,
             bufferDuration = bufferDuration,
           )
         }
@@ -607,8 +593,6 @@ private fun SeekbarContent(
             isScrubbing = isVisuallyInteracting,
             seekbarStyle = SeekbarStyle.Standard,
             interactionSource = seekerInteractionSource,
-            loopStart = loopStart,
-            loopEnd = loopEnd,
             bufferDuration = bufferDuration,
           )
         }
@@ -623,8 +607,6 @@ private fun SeekbarContent(
             seekbarStyle = SeekbarStyle.Wavy,
             onSeek = { }, // Touch handled by parent
             onSeekFinished = { }, // Touch handled by parent
-            loopStart = loopStart,
-            loopEnd = loopEnd,
             bufferDuration = bufferDuration,
           )
         }
@@ -637,8 +619,6 @@ private fun SeekbarContent(
             isScrubbing = isVisuallyInteracting,
             seekbarStyle = SeekbarStyle.Thick,
             interactionSource = seekerInteractionSource,
-            loopStart = loopStart,
-            loopEnd = loopEnd,
             bufferDuration = bufferDuration,
           )
         }
@@ -649,8 +629,6 @@ private fun SeekbarContent(
             chapters = chapters,
             isPaused = paused,
             isScrubbing = isVisuallyInteracting,
-            loopStart = loopStart,
-            loopEnd = loopEnd,
             bufferDuration = bufferDuration,
           )
         }
@@ -695,23 +673,6 @@ private fun SeekbarContent(
         }
       }
 
-    }
-
-    val activeClip = clipRange
-    val clipEnd = activeClip?.endSeconds
-    if (activeClip != null && clipEnd != null && safeDuration > 0f && clipEnd > activeClip.startSeconds) {
-      ClipRangeSelection(
-        startSeconds = activeClip.startSeconds,
-        endSeconds = clipEnd,
-        duration = safeDuration,
-        color = MaterialTheme.colorScheme.tertiary,
-        trackHeight = overlayTrackHeight,
-        modifier =
-          Modifier
-            .fillMaxWidth()
-            .height(touchAreaHeight)
-            .align(Alignment.Center),
-      )
     }
 
     Seeker(
@@ -771,75 +732,6 @@ private fun SeekbarContent(
   }
 }
 
-@Composable
-private fun ClipRangeSelection(
-  startSeconds: Float,
-  endSeconds: Float,
-  duration: Float,
-  color: Color,
-  trackHeight: Dp,
-  modifier: Modifier = Modifier,
-) {
-  val targetStart = (startSeconds / duration).coerceIn(0f, 1f)
-  val targetEnd = (endSeconds / duration).coerceIn(targetStart, 1f)
-  val boundaryMotion = AppMotion.noBounce<Float>(Spring.StiffnessMedium)
-  val animatedStart by animateFloatAsState(
-    targetValue = targetStart,
-    animationSpec = boundaryMotion,
-    label = "ClipRangeStart",
-  )
-  val animatedEnd by animateFloatAsState(
-    targetValue = targetEnd,
-    animationSpec = boundaryMotion,
-    label = "ClipRangeEnd",
-  )
-
-  Canvas(
-    modifier = modifier,
-  ) {
-    val startX = animatedStart.coerceIn(0f, 1f) * size.width
-    val endX = animatedEnd.coerceIn(animatedStart.coerceIn(0f, 1f), 1f) * size.width
-    val selectionWidth = endX - startX
-    if (selectionWidth <= 0f || size.height <= 0f) return@Canvas
-
-    val trackHeightPx = trackHeight.toPx().coerceAtMost(size.height)
-    val trackTop = (size.height - trackHeightPx) / 2f
-    val cornerRadius = CornerRadius(trackHeightPx / 2f)
-    val outlineWidth = 1.dp.toPx().coerceAtMost(trackHeightPx / 3f)
-    drawRoundRect(
-      color = color.copy(alpha = 0.32f),
-      topLeft = Offset(startX, trackTop),
-      size = Size(selectionWidth, trackHeightPx),
-      cornerRadius = cornerRadius,
-    )
-    drawRoundRect(
-      color = color.copy(alpha = 0.86f),
-      topLeft = Offset(startX, trackTop),
-      size = Size(selectionWidth, trackHeightPx),
-      cornerRadius = cornerRadius,
-      style = Stroke(width = outlineWidth),
-    )
-
-    val guideInset = 2.dp.toPx().coerceAtMost(size.height / 4f)
-    val dashLength = 4.dp.toPx()
-    val dashGap = 3.dp.toPx()
-    val guideStroke = 2.dp.toPx()
-    val guideEffect = PathEffect.dashPathEffect(floatArrayOf(dashLength, dashGap))
-    fun drawBoundary(markerX: Float) {
-      drawLine(
-        color = color.copy(alpha = 0.96f),
-        start = Offset(markerX, guideInset),
-        end = Offset(markerX, size.height - guideInset),
-        strokeWidth = guideStroke,
-        pathEffect = guideEffect,
-        cap = StrokeCap.Round,
-      )
-    }
-    drawBoundary(startX)
-    drawBoundary(endX)
-  }
-}
-
 /**
  * A conventional media timeline with a circular thumb, buffered range, and chapter segments.
  * Renders full width (0..size.width) matching other styles and skip overlay geometry.
@@ -851,8 +743,6 @@ private fun NormalSeekbar(
   chapters: ImmutableList<Segment>,
   isPaused: Boolean,
   isScrubbing: Boolean,
-  loopStart: Float? = null,
-  loopEnd: Float? = null,
   bufferDuration: Float? = null,
   modifier: Modifier = Modifier,
 ) {
@@ -963,28 +853,6 @@ private fun NormalSeekbar(
       center = Offset(thumbCenterX, centerY),
     )
 
-    // 5. A-B Loop indicators
-    if (loopStart != null || loopEnd != null) {
-      val loopColor = Color(0xFFFFB300)
-      val markerW = 2.dp.toPx()
-      if (loopStart != null && duration > 0f) {
-        val px = (loopStart / duration).coerceIn(0f, 1f) * totalWidth
-        drawLine(loopColor, Offset(px, centerY - thumbR), Offset(px, centerY + thumbR), markerW)
-      }
-      if (loopEnd != null && duration > 0f) {
-        val px = (loopEnd / duration).coerceIn(0f, 1f) * totalWidth
-        drawLine(loopColor, Offset(px, centerY - thumbR), Offset(px, centerY + thumbR), markerW)
-      }
-      if (loopStart != null && loopEnd != null && duration > 0f) {
-        val minPx = (minOf(loopStart, loopEnd) / duration).coerceIn(0f, 1f) * totalWidth
-        val maxPx = (maxOf(loopStart, loopEnd) / duration).coerceIn(0f, 1f) * totalWidth
-        drawRect(
-          color = loopColor.copy(alpha = 0.2f),
-          topLeft = Offset(minPx, centerY - thumbR),
-          size = Size(maxPx - minPx, thumbR * 2),
-        )
-      }
-    }
   }
 }
 
@@ -999,8 +867,6 @@ private fun SquigglySeekbar(
   seekbarStyle: SeekbarStyle,
   onSeek: (Float) -> Unit,
   onSeekFinished: () -> Unit,
-  loopStart: Float? = null,
-  loopEnd: Float? = null,
   bufferDuration: Float? = null,
   modifier: Modifier = Modifier,
 ) {
@@ -1355,41 +1221,6 @@ private fun SquigglySeekbar(
       )
     }
 
-    // A-B Loop Indicators for SquigglySeekbar
-    if (loopStart != null || loopEnd != null) {
-      val loopColor = Color(0xFFFFB300)
-      val markerWidth = 2.dp.toPx()
-
-      if (loopStart != null && duration > 0f) {
-        val startPx = (loopStart / duration).coerceIn(0f, 1f) * totalWidth
-        drawLine(
-          color = loopColor,
-          start = Offset(startPx, centerY - maxOf(lineAmplitude, strokeWidth)),
-          end = Offset(startPx, centerY + maxOf(lineAmplitude, strokeWidth)),
-          strokeWidth = markerWidth,
-        )
-      }
-
-      if (loopEnd != null && duration > 0f) {
-        val endPx = (loopEnd / duration).coerceIn(0f, 1f) * totalWidth
-        drawLine(
-          color = loopColor,
-          start = Offset(endPx, centerY - maxOf(lineAmplitude, strokeWidth)),
-          end = Offset(endPx, centerY + maxOf(lineAmplitude, strokeWidth)),
-          strokeWidth = markerWidth,
-        )
-      }
-
-      if (loopStart != null && loopEnd != null && duration > 0f) {
-        val minPx = (minOf(loopStart, loopEnd) / duration).coerceIn(0f, 1f) * totalWidth
-        val maxPx = (maxOf(loopStart, loopEnd) / duration).coerceIn(0f, 1f) * totalWidth
-        drawRect(
-          color = loopColor.copy(alpha = 0.2f),
-          topLeft = Offset(minPx, centerY - maxOf(lineAmplitude, strokeWidth)),
-          size = Size(maxPx - minPx, maxOf(lineAmplitude, strokeWidth) * 2),
-        )
-      }
-    }
   }
 }
 
@@ -1400,8 +1231,6 @@ private fun SlimSeekbar(
   chapters: ImmutableList<Segment>,
   isPaused: Boolean,
   isScrubbing: Boolean,
-  loopStart: Float? = null,
-  loopEnd: Float? = null,
   bufferDuration: Float? = null,
   modifier: Modifier = Modifier,
 ) {
@@ -1479,28 +1308,6 @@ private fun SlimSeekbar(
       unplayedColor = unplayedColor,
     )
 
-    // A-B loop markers
-    if (loopStart != null || loopEnd != null) {
-      val loopColor = Color(0xFFFFB300)
-      val markerW = 2.dp.toPx()
-      if (loopStart != null && duration > 0f) {
-        val px = (loopStart / duration).coerceIn(0f, 1f) * totalWidth
-        drawLine(loopColor, Offset(px, centerY - outerRadius), Offset(px, centerY + outerRadius), markerW)
-      }
-      if (loopEnd != null && duration > 0f) {
-        val px = (loopEnd / duration).coerceIn(0f, 1f) * totalWidth
-        drawLine(loopColor, Offset(px, centerY - outerRadius), Offset(px, centerY + outerRadius), markerW)
-      }
-      if (loopStart != null && loopEnd != null && duration > 0f) {
-        val minPx = (minOf(loopStart, loopEnd) / duration).coerceIn(0f, 1f) * totalWidth
-        val maxPx = (maxOf(loopStart, loopEnd) / duration).coerceIn(0f, 1f) * totalWidth
-        drawRect(
-          color = loopColor.copy(alpha = 0.2f),
-          topLeft = Offset(minPx, centerY - outerRadius),
-          size = Size(maxPx - minPx, height),
-        )
-      }
-    }
   }
 }
 
@@ -1735,8 +1542,6 @@ fun StandardSeekbar(
   isScrubbing: Boolean = false,
   seekbarStyle: SeekbarStyle = SeekbarStyle.Standard,
   interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
-  loopStart: Float? = null,
-  loopEnd: Float? = null,
   bufferDuration: Float? = null,
   modifier: Modifier = Modifier,
 ) = StandardSeekbar(
@@ -1747,8 +1552,6 @@ fun StandardSeekbar(
   isScrubbing = isScrubbing,
   seekbarStyle = seekbarStyle,
   interactionSource = interactionSource,
-  loopStart = loopStart,
-  loopEnd = loopEnd,
   bufferDuration = bufferDuration,
   modifier = modifier,
 )
@@ -1762,8 +1565,6 @@ fun StandardSeekbar(
   isScrubbing: Boolean = false,
   seekbarStyle: SeekbarStyle = SeekbarStyle.Standard,
   interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
-  loopStart: Float? = null,
-  loopEnd: Float? = null,
   bufferDuration: Float? = null,
   modifier: Modifier = Modifier,
 ) {
@@ -1860,30 +1661,6 @@ fun StandardSeekbar(
       unplayedColor = primaryColor.copy(alpha = 0.3f),
     )
 
-    if ((loopStart != null || loopEnd != null) && safeDuration > 0f) {
-      val loopColor = Color(0xFFFFB300)
-      val markerWidth = 2.dp.toPx()
-      val trackTop = centerY - trackHeight / 2f
-      val trackBottom = centerY + trackHeight / 2f
-
-      loopStart?.let { start ->
-        val startPx = (start / safeDuration).coerceIn(0f, 1f) * size.width
-        drawLine(loopColor, Offset(startPx, trackTop), Offset(startPx, trackBottom), markerWidth)
-      }
-      loopEnd?.let { end ->
-        val endPx = (end / safeDuration).coerceIn(0f, 1f) * size.width
-        drawLine(loopColor, Offset(endPx, trackTop), Offset(endPx, trackBottom), markerWidth)
-      }
-      if (loopStart != null && loopEnd != null) {
-        val minPx = (minOf(loopStart, loopEnd) / safeDuration).coerceIn(0f, 1f) * size.width
-        val maxPx = (maxOf(loopStart, loopEnd) / safeDuration).coerceIn(0f, 1f) * size.width
-        drawRect(
-          color = loopColor.copy(alpha = 0.3f),
-          topLeft = Offset(minPx, trackTop),
-          size = Size(maxPx - minPx, trackHeight),
-        )
-      }
-    }
 
     val thumbLeft =
       (playedPx - thumbWidthPx / 2f)

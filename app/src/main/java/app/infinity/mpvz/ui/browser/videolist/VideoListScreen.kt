@@ -455,7 +455,6 @@ data class VideoListScreen(
       },
       floatingActionButton = {
         val navigationBarHeight = app.infinity.mpvz.ui.browser.LocalNavigationBarHeight.current
-        val miniPlayerClearance = app.infinity.mpvz.ui.browser.NavigationBarState.miniPlayerClearance
         if (sortedVideosWithInfo.isNotEmpty()) {
           val isFabShouldBeVisible =
             showQuickPlayFab && !selectionManager.isInSelectionMode && isFabVisible.value
@@ -477,7 +476,7 @@ data class VideoListScreen(
               modifier =
                 Modifier
                   .windowInsetsPadding(WindowInsets.systemBars)
-                  .padding(bottom = navigationBarHeight + miniPlayerClearance)
+                  .padding(bottom = navigationBarHeight)
                   .animateFloatingActionButton(
                     visible = isFabShouldBeVisible,
                     alignment = Alignment.BottomEnd,
@@ -906,12 +905,11 @@ internal fun VideoListContent(
   val isTablet = configuration.smallestScreenWidthDp >= 600
   val density = LocalDensity.current
   val navigationBarHeight = app.infinity.mpvz.ui.browser.LocalNavigationBarHeight.current
-  val miniPlayerClearance = app.infinity.mpvz.ui.browser.NavigationBarState.miniPlayerClearance
   val bottomPadding =
     if (showFloatingBottomBar) {
       if (isTablet) 108.dp else 88.dp
     } else {
-      navigationBarHeight + miniPlayerClearance
+      navigationBarHeight
     }
   val tapThumbnailToSelect by gesturePreferences.tapThumbnailToSelect.collectAsState()
   val showSubtitleIndicator by browserPreferences.showSubtitleIndicator.collectAsState()
@@ -1261,7 +1259,7 @@ internal fun VideoListContent(
                   modifier =
                     Modifier
                       .align(Alignment.CenterEnd)
-                      .padding(end = 2.dp, top = 6.dp, bottom = navigationBarHeight + miniPlayerClearance + 6.dp)
+                      .padding(end = 2.dp, top = 6.dp, bottom = navigationBarHeight + 6.dp)
                       .graphicsLayer { alpha = scrollbarAlpha },
                 )
               }
@@ -1335,7 +1333,7 @@ internal fun VideoListContent(
                   modifier =
                     Modifier
                       .align(Alignment.CenterEnd)
-                      .padding(end = 2.dp, top = 6.dp, bottom = navigationBarHeight + miniPlayerClearance + 6.dp)
+                      .padding(end = 2.dp, top = 6.dp, bottom = navigationBarHeight + 6.dp)
                       .graphicsLayer { alpha = scrollbarAlpha },
                 )
               }

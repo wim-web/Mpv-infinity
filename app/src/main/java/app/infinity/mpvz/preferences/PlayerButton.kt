@@ -38,14 +38,12 @@ enum class PlayerButton(
   VIDEO_QUALITY(Icons.RoundedFilled.Hd),
   AUDIO_TRACK(Icons.RoundedFilled.Audiotrack),
   SUBTITLES(Icons.RoundedFilled.Subtitles),
-  CLIP(Icons.RoundedFilled.ContentCut),
   MORE_OPTIONS(Icons.RoundedFilled.MoreVert),
   CURRENT_CHAPTER(Icons.RoundedFilled.Bookmarks), // <-- CHANGED ICON
   REPEAT_MODE(Icons.RoundedFilled.Repeat),
   SHUFFLE(Icons.RoundedFilled.Shuffle),
   MIRROR(Icons.RoundedFilled.Flip),
   VERTICAL_FLIP(Icons.RoundedFilled.Flip),
-  AB_LOOP(Icons.RoundedFilled.Repeat),
   CUSTOM_SKIP(Icons.RoundedFilled.FastForward),
   BACKGROUND_PLAYBACK(Icons.RoundedFilled.Headset),
   AMBIENT_MODE(Icons.RoundedFilled.BlurOff),
@@ -87,14 +85,12 @@ fun getPlayerButtonLabel(button: PlayerButton): String =
     PlayerButton.VIDEO_QUALITY -> stringResource(R.string.player_video_quality_button)
     PlayerButton.AUDIO_TRACK -> stringResource(R.string.btn_label_audio)
     PlayerButton.SUBTITLES -> stringResource(R.string.btn_label_subtitles)
-    PlayerButton.CLIP -> stringResource(R.string.clip_action)
     PlayerButton.MORE_OPTIONS -> stringResource(R.string.btn_label_more)
     PlayerButton.CURRENT_CHAPTER -> stringResource(R.string.btn_label_chapter)
     PlayerButton.REPEAT_MODE -> stringResource(R.string.btn_label_repeat_mode)
     PlayerButton.SHUFFLE -> stringResource(R.string.btn_label_shuffle)
     PlayerButton.MIRROR -> stringResource(R.string.btn_label_mirror)
     PlayerButton.VERTICAL_FLIP -> stringResource(R.string.btn_label_vertical_flip)
-    PlayerButton.AB_LOOP -> stringResource(R.string.btn_label_ab_loop)
     PlayerButton.CUSTOM_SKIP -> stringResource(R.string.btn_label_custom_skip)
     PlayerButton.BACKGROUND_PLAYBACK -> stringResource(R.string.btn_label_background_playback)
     PlayerButton.AMBIENT_MODE -> stringResource(R.string.btn_label_ambient)

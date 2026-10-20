@@ -34,12 +34,10 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -173,7 +171,6 @@ import app.infinity.mpvz.ui.player.NativePlaybackSnapshot
 import app.infinity.mpvz.ui.player.PlayerViewModel
 import app.infinity.mpvz.ui.player.RepeatMode
 import app.infinity.mpvz.ui.player.Sheets
-import app.infinity.mpvz.ui.player.controls.components.AbLoopIcon
 import app.infinity.mpvz.ui.player.controls.components.SeekbarWithTimers
 import app.infinity.mpvz.ui.player.visualizer.AudioFeatures
 import app.infinity.mpvz.ui.player.visualizer.AudioSpectrumAnalyzer
@@ -918,9 +915,6 @@ fun AudioPlayerControls(
     features = visualizerFeatures,
   )
 
-  val abLoop by viewModel.abLoopState.collectAsState()
-  val abLoopA = abLoop.a
-  val abLoopB = abLoop.b
 
   var addToPlaylistDialogOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -1462,7 +1456,7 @@ fun AudioPlayerControls(
         )
         Spacer(modifier = Modifier.height(2.dp))
 
-        // 3. Track Info | A-B Loop Control
+        // 3. Track information and playback speed
         val playlistInfo = viewModel.getPlaylistInfo()
         val audiobookChapter = if (isAudiobook) AudiobookPlayback.currentChapter() else null
         val audiobookChapterNumber = audiobookChapter?.let { chapter ->
@@ -1501,7 +1495,7 @@ fun AudioPlayerControls(
               color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             )
 
-            // 4. Playback Speed (left of A-B Loop)
+            // Playback speed
             Surface(
               shape = CircleShape,
               color = Color.Transparent,
@@ -1527,115 +1521,6 @@ fun AudioPlayerControls(
                   style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                   color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (speedConfigOwned) 0.38f else 1f),
                 )
-              }
-            }
-
-            AnimatedContent(
-              targetState = abLoop.isExpanded,
-              transitionSpec = {
-                (fadeIn(animationSpec = tween(200)) + expandHorizontally(animationSpec = tween(250)))
-                  .togetherWith(fadeOut(animationSpec = tween(200)) + shrinkHorizontally(animationSpec = tween(250)))
-              },
-              label = "AudioABLoopExpand",
-            ) { expanded ->
-              if (expanded) {
-                Row(
-                  horizontalArrangement = Arrangement.spacedBy(6.dp),
-                  verticalAlignment = Alignment.CenterVertically,
-                ) {
-                  Surface(
-                    shape = CircleShape,
-                    color =
-                      if (abLoopA !=
-                        null
-                      ) {
-                        MaterialTheme.colorScheme.primaryContainer
-                      } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                      },
-                    modifier = Modifier.height(30.dp).clip(CircleShape).clickable(onClick = { viewModel.setLoopA() }),
-                  ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp)) {
-                      Text(
-                        text = if (abLoopA != null) formatSec(abLoopA.toLong()) else "A",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color =
-                          if (abLoopA !=
-                            null
-                          ) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                          } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                          },
-                      )
-                    }
-                  }
-                  Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier =
-                      Modifier.size(30.dp).clip(CircleShape).clickable(onClick = {
-                        viewModel.clearABLoop()
-                        viewModel.toggleABLoopExpanded()
-                      }),
-                  ) {
-                    Box(contentAlignment = Alignment.Center) {
-                      Icon(
-                        imageVector = Icons.RoundedFilled.Close,
-                        contentDescription = "Clear A-B Loop",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp),
-                      )
-                    }
-                  }
-                  Surface(
-                    shape = CircleShape,
-                    color =
-                      if (abLoopB !=
-                        null
-                      ) {
-                        MaterialTheme.colorScheme.primaryContainer
-                      } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                      },
-                    modifier = Modifier.height(30.dp).clip(CircleShape).clickable(onClick = { viewModel.setLoopB() }),
-                  ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp)) {
-                      Text(
-                        text = if (abLoopB != null) formatSec(abLoopB.toLong()) else "B",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color =
-                          if (abLoopB !=
-                            null
-                          ) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                          } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                          },
-                      )
-                    }
-                  }
-                }
-              } else {
-                Surface(
-                  shape = CircleShape,
-                  color = Color.Transparent,
-                  modifier = Modifier.clip(CircleShape).clickable(onClick = viewModel::toggleABLoopExpanded),
-                ) {
-                  AbLoopIcon(
-                    modifier = Modifier.size(30.dp),
-                    tint =
-                      if (abLoopA != null ||
-                        abLoopB != null
-                      ) {
-                        MaterialTheme.colorScheme.primary
-                      } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                      },
-                    isASet = abLoopA != null,
-                    isBSet = abLoopB != null,
-                  )
-                }
               }
             }
           }
@@ -1737,8 +1622,6 @@ fun AudioPlayerControls(
         wavePalette = visualizerPalette,
         waveVolumeScale = volumeScale,
         waveSheetOpen = isSheetOpen,
-        loopStart = abLoopA?.toFloat(),
-        loopEnd = abLoopB?.toFloat(),
         isPortrait = isPortrait,
         applyHorizontalPadding = false,
         modifier = Modifier.fillMaxWidth(),

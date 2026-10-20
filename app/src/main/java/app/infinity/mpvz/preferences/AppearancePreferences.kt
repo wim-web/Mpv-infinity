@@ -93,25 +93,23 @@ class AppearancePreferences(
   val bottomRightControls =
     preferenceStore.getString(
       "bottom_right_controls",
-      "FRAME_NAVIGATION,CLIP,VIDEO_ZOOM,PICTURE_IN_PICTURE,ASPECT_RATIO",
+      "FRAME_NAVIGATION,VIDEO_ZOOM,PICTURE_IN_PICTURE,ASPECT_RATIO",
     )
 
   val bottomLeftControls =
     preferenceStore.getString(
       "bottom_left_controls",
-      "BACKGROUND_PLAYBACK,LOCK_CONTROLS,SCREEN_ROTATION,PLAYBACK_SPEED,REPEAT_MODE,SHUFFLE,AB_LOOP",
+      "BACKGROUND_PLAYBACK,LOCK_CONTROLS,SCREEN_ROTATION,PLAYBACK_SPEED,REPEAT_MODE,SHUFFLE",
     )
 
   val portraitBottomControls =
     preferenceStore.getString(
       "portrait_bottom_controls",
-      "CAST,SCREEN_ROTATION,DECODER,AUDIO_TRACK,SUBTITLES,BOOKMARKS_CHAPTERS,PLAYBACK_SPEED,BACKGROUND_PLAYBACK,REPEAT_MODE,SHUFFLE,VIDEO_ZOOM,FRAME_NAVIGATION,CLIP,ASPECT_RATIO,PICTURE_IN_PICTURE,LOCK_CONTROLS,MORE_OPTIONS",
+      "CAST,SCREEN_ROTATION,DECODER,AUDIO_TRACK,SUBTITLES,BOOKMARKS_CHAPTERS,PLAYBACK_SPEED,BACKGROUND_PLAYBACK,REPEAT_MODE,SHUFFLE,VIDEO_ZOOM,FRAME_NAVIGATION,ASPECT_RATIO,PICTURE_IN_PICTURE,LOCK_CONTROLS,MORE_OPTIONS",
     )
 
   private val castButtonMigrationComplete =
     preferenceStore.getBoolean("cast_button_migration_complete", false)
-  private val clipButtonMigrationComplete =
-    preferenceStore.getBoolean("clip_button_migration_complete", false)
 
   init {
     if (!castButtonMigrationComplete.get()) {
@@ -133,24 +131,13 @@ class AppearancePreferences(
       castButtonMigrationComplete.set(true)
     }
 
-    if (!clipButtonMigrationComplete.get()) {
-      val landscapeButtons =
-        listOf(
-          topLeftControls.get(),
-          topRightControls.get(),
-          bottomRightControls.get(),
-          bottomLeftControls.get(),
-        ).flatMap { it.split(',') }
-          .map { it.trim().uppercase() }
-      if ("CLIP" !in landscapeButtons) {
-        bottomRightControls.set("${bottomRightControls.get()},CLIP")
+    // Remove retired buttons from saved layouts, including restored settings.
+    listOf(topLeftControls, topRightControls, bottomRightControls, bottomLeftControls, portraitBottomControls)
+      .forEach { preference ->
+        val previous = preference.get()
+        val buttons = previous.split(',').filterNot { it.trim().uppercase() in setOf("CLIP", "AB_LOOP") }.joinToString(",")
+        if (buttons != previous) preference.set(buttons)
       }
-      val portraitButtons = portraitBottomControls.get().split(',').map { it.trim().uppercase() }
-      if ("CLIP" !in portraitButtons) {
-        portraitBottomControls.set("${portraitBottomControls.get()},CLIP")
-      }
-      clipButtonMigrationComplete.set(true)
-    }
   }
 
   fun parseButtons(

@@ -1623,16 +1623,6 @@ class PlayerViewModel : ViewModel(),
   private val _shuffleEnabled = MutableStateFlow(false)
   val shuffleEnabled: StateFlow<Boolean> = _shuffleEnabled.asStateFlow()
 
-  // A-B Loop state — combined for atomic updates
-  data class ABLoopState(
-    val a: Double? = null,
-    val b: Double? = null,
-    val isExpanded: Boolean = false,
-  )
-
-  private val _abLoopState = MutableStateFlow(ABLoopState())
-  val abLoopState: StateFlow<ABLoopState> = _abLoopState.asStateFlow()
-
   // Transform state (mirror + flip) — combined, saves 1 StateFlow object
   data class TransformState(
     val isMirrored: Boolean = false,
@@ -2006,15 +1996,12 @@ class PlayerViewModel : ViewModel(),
       }
     }
 
-    // Monitor duration and AB loop changes to automatically enable precise seeking
+    // Enable precise seeking for short videos.
     viewModelScope.launch(playbackStateDispatcher) {
-      combine(_duration, abLoopState) { duration, abLoop ->
-        Pair(duration, abLoop)
-      }.collect { (duration, abLoop) ->
+      _duration.collect { duration ->
         if (!_isMpvCoreReady.value) return@collect
         val videoDuration = duration ?: 0
-        val isLoopActive = abLoop.a != null || abLoop.b != null
-        val shouldUsePreciseSeeking = playerPreferences.usePreciseSeeking.get() || videoDuration < 120 || isLoopActive
+        val shouldUsePreciseSeeking = playerPreferences.usePreciseSeeking.get() || videoDuration < 120
         PlaybackSession.setPropertyString("hr-seek", if (shouldUsePreciseSeeking) "yes" else "no")
         PlaybackSession.setPropertyString("hr-seek-framedrop", if (shouldUsePreciseSeeking) "no" else "yes")
       }
@@ -4532,17 +4519,8 @@ class PlayerViewModel : ViewModel(),
       val maxDuration =
         (PlaybackSession.getPropertyInt("duration") ?: duration ?: _preciseDuration.value.toInt())
           .coerceAtLeast(0)
-      var clampedPosition =
+      val clampedPosition =
         if (maxDuration > 0) position.coerceIn(0, maxDuration) else position.coerceAtLeast(0)
-
-      // Clamp within AB loop if active
-      val loopA = _abLoopState.value.a
-      val loopB = _abLoopState.value.b
-      if (loopA != null && loopB != null) {
-        val min = minOf(loopA.toInt(), loopB.toInt())
-        val max = maxOf(loopA.toInt(), loopB.toInt())
-        clampedPosition = clampedPosition.coerceIn(min, max)
-      }
 
       // Cancel pending relative seek before absolute seek
       seekCoalesceJob?.cancel()
@@ -5585,24 +5563,8 @@ class PlayerViewModel : ViewModel(),
         ?: return
     val lastFrame = (frameCount - 1).coerceAtLeast(0)
     val clampedFrame = targetFrame.coerceIn(0, lastFrame)
-    val requestedPosition = clampedFrame.toDouble() * durationSeconds / frameCount
-    val loopA = _abLoopState.value.a
-    val loopB = _abLoopState.value.b
-    val targetPosition =
-      if (loopA != null && loopB != null) {
-        requestedPosition.coerceIn(minOf(loopA, loopB), maxOf(loopA, loopB))
-      } else {
-        requestedPosition
-      }
-    val effectiveTargetFrame =
-      if (targetPosition == requestedPosition) {
-        clampedFrame
-      } else {
-        kotlin.math
-          .round(targetPosition * frameCount / durationSeconds)
-          .toInt()
-          .coerceIn(0, lastFrame)
-      }
+    val targetPosition = clampedFrame.toDouble() * durationSeconds / frameCount
+    val effectiveTargetFrame = clampedFrame
 
     if (!finished) {
       seekPreviewTo(targetPosition.toFloat())
@@ -6271,60 +6233,6 @@ class PlayerViewModel : ViewModel(),
 
   fun shouldRepeatPlaylist(): Boolean =
     _repeatMode.value == RepeatMode.ALL && PlaybackSession.queue.value.isExplicitQueue
-
-  // ==================== A-B Loop ====================
-
-  fun toggleABLoopExpanded() {
-    _abLoopState.update { it.copy(isExpanded = !it.isExpanded) }
-  }
-
-  fun setLoopA() {
-    if (_abLoopState.value.a != null) {
-      _abLoopState.update { it.copy(a = null) }
-      if (host.isNativeEngineActive()) host.nativeSetLoopA(null) else PlaybackSession.setPropertyString("ab-loop-a", "no")
-      return
-    }
-    val currentPos = if (host.isNativeEngineActive()) {
-      host.nativePlaybackPositionSeconds()
-    } else {
-      PlaybackSession.getPropertyDouble("time-pos") ?: return
-    }
-    _abLoopState.update { it.copy(a = currentPos) }
-    if (host.isNativeEngineActive()) host.nativeSetLoopA(currentPos) else PlaybackSession.setPropertyDouble("ab-loop-a", currentPos)
-  }
-
-  fun setLoopB() {
-    if (_abLoopState.value.b != null) {
-      _abLoopState.update { it.copy(b = null) }
-      if (host.isNativeEngineActive()) host.nativeSetLoopB(null) else PlaybackSession.setPropertyString("ab-loop-b", "no")
-      return
-    }
-    val currentPos = if (host.isNativeEngineActive()) {
-      host.nativePlaybackPositionSeconds()
-    } else {
-      PlaybackSession.getPropertyDouble("time-pos") ?: return
-    }
-    _abLoopState.update { it.copy(b = currentPos) }
-    if (host.isNativeEngineActive()) host.nativeSetLoopB(currentPos) else PlaybackSession.setPropertyDouble("ab-loop-b", currentPos)
-  }
-
-  fun clearABLoop() {
-    _abLoopState.update { it.copy(a = null, b = null) }
-    if (host.isNativeEngineActive()) {
-      host.nativeClearLoop()
-    } else {
-      PlaybackSession.setPropertyString("ab-loop-a", "no")
-      PlaybackSession.setPropertyString("ab-loop-b", "no")
-    }
-  }
-
-  fun formatTimestamp(seconds: Double): String {
-    val totalSec = seconds.toInt()
-    val h = totalSec / 3600
-    val m = (totalSec % 3600) / 60
-    val s = totalSec % 60
-    return if (h > 0) String.format("%d:%02d:%02d", h, m, s) else String.format("%02d:%02d", m, s)
-  }
 
   // ==================== Mirroring ====================
 

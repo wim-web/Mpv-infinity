@@ -56,7 +56,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
@@ -79,6 +78,7 @@ import app.infinity.mpvz.preferences.preference.collectAsState
 import app.infinity.mpvz.presentation.Screen
 import app.infinity.mpvz.ui.browser.MainScreen
 import app.infinity.mpvz.ui.browser.NavigationBarState
+import app.infinity.mpvz.ui.browser.components.BrowserPlaybackLayout
 import app.infinity.mpvz.ui.browser.components.MiniPlayer
 import app.infinity.mpvz.ui.player.NavigationAnimStyle
 import app.infinity.mpvz.ui.theme.DarkMode
@@ -626,7 +626,16 @@ class MainActivity : AppCompatActivity() {
       }
 
       if (hasNavEntries) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        BrowserPlaybackLayout(
+          playerVisible = NavigationBarState.isMiniPlayerVisible,
+          player = {
+            MiniPlayer(
+              modifier = Modifier.fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+          },
+        ) {
           NavDisplay(
             modifier = Modifier.fillMaxSize(),
             backStack = typedBackstack,
@@ -652,71 +661,6 @@ class MainActivity : AppCompatActivity() {
               screenNavTransition(forward = false, style = appNavStyle, speed = animSpeed)
             },
           )
-
-          val miniPlayerConfig = LocalConfiguration.current
-          val isPortrait = miniPlayerConfig.orientation == Configuration.ORIENTATION_PORTRAIT
-          val isTablet = miniPlayerConfig.smallestScreenWidthDp >= 600
-          val isDualPane = NavigationBarState.isDualPaneFolderSelected
-
-          val miniPlayerModifier =
-            when {
-              // Dual-pane tablets: the mini player lives inside the 2nd (right) pane.
-              isDualPane ->
-                Modifier
-                  .align(Alignment.BottomEnd)
-                  .fillMaxWidth(0.6f)
-                  .windowInsetsPadding(WindowInsets.navigationBars)
-                  .padding(bottom = 12.dp, start = 12.dp, end = 12.dp)
-
-              // Portrait phones: full width with a small side margin. During selection,
-              // lift the mini player above the edit actions instead of covering them.
-              isPortrait && !isTablet ->
-                Modifier
-                  .align(Alignment.BottomCenter)
-                  .fillMaxWidth()
-                  .windowInsetsPadding(WindowInsets.navigationBars)
-                  .padding(
-                    start = 12.dp,
-                    end = 12.dp,
-                    bottom =
-                      (if (NavigationBarState.isNavBarVisible) {
-                        NavigationBarState.navigationBarClearance
-                      } else {
-                        12.dp
-                      }) +
-                        (if (NavigationBarState.isInSelectionMode) {
-                          NavigationBarState.selectionBarClearance
-                        } else {
-                          0.dp
-                        }),
-                  )
-
-              // Landscape/tablet single-pane: sit on the right side of the nav bar,
-              // which slides left when the mini player appears.
-              else -> {
-                val isNavBarOnScreen = NavigationBarState.isNavBarVisible
-                val navBarLeft = if (NavigationBarState.navbarLeftOffset > 0.dp) NavigationBarState.navbarLeftOffset else 16.dp
-                val navBarWidth = if (NavigationBarState.navbarWidth > 0.dp) NavigationBarState.navbarWidth else 320.dp
-                val startPadding = if (isNavBarOnScreen) (navBarLeft + navBarWidth + 12.dp) else 12.dp
-                val bottomPadding = if (NavigationBarState.isInSelectionMode) {
-                  NavigationBarState.selectionBarClearance
-                } else {
-                  12.dp
-                }
-
-                Modifier
-                  .align(Alignment.BottomStart)
-                  .padding(
-                    start = startPadding,
-                    end = 12.dp,
-                  )
-                  .fillMaxWidth()
-                  .windowInsetsPadding(WindowInsets.navigationBars)
-                  .padding(bottom = bottomPadding)
-              }
-            }
-
-          MiniPlayer(modifier = miniPlayerModifier)
         }
       }
 

@@ -33,7 +33,6 @@ import app.infinity.mpvz.preferences.PlayerButton
 import app.infinity.mpvz.preferences.getPlayerButtonLabel
 import app.infinity.mpvz.ui.icons.AppIcon
 import app.infinity.mpvz.ui.icons.Icon
-import app.infinity.mpvz.ui.player.controls.components.AbLoopIcon
 
 /**
  * A simple "Quick Settings" style chip for a player button.
@@ -116,11 +115,6 @@ fun PlayerButtonChip(
                 modifier = Modifier.padding(start = 8.dp),
               )
             }
-          }
-          PlayerButton.AB_LOOP -> {
-            AbLoopIcon(
-              modifier = Modifier.size(36.dp),
-            )
           }
           else -> {
             // Default: Icon only

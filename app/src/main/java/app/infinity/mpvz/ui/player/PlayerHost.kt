@@ -93,12 +93,6 @@ interface PlayerHost {
 
   fun nativePlaybackDurationSeconds(): Double = 0.0
 
-  fun nativeSetLoopA(positionSeconds: Double?) {}
-
-  fun nativeSetLoopB(positionSeconds: Double?) {}
-
-  fun nativeClearLoop() {}
-
   fun nativeSetSpeed(speed: Float) {}
 
   fun nativeSetRepeatMode(repeatMode: RepeatMode) {}

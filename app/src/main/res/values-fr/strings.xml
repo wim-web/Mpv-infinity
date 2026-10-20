@@ -1103,7 +1103,6 @@ Veuillez redémarrer l’application pour appliquer toutes les modifications.</s
   <string name="btn_label_shuffle">Lecture aléatoire</string>
   <string name="btn_label_mirror">Retournement horizontal</string>
   <string name="btn_label_vertical_flip">Retournement vertical</string>
-  <string name="btn_label_ab_loop">Boucle A-B</string>
   <string name="btn_label_custom_skip">Saut personnalisé</string>
   <string name="btn_label_background_playback">Lecture en arrière-plan</string>
   <string name="btn_label_ambient">Mode ambiant</string>
@@ -1321,7 +1320,6 @@ Veuillez redémarrer l’application pour appliquer toutes les modifications.</s
   <string name="ui_take_screenshot">Prendre une capture d’écran</string>
   <string name="ui_next_frame">Image suivante</string>
   <string name="ui_vertical_flip">Retournement vertical</string>
-  <string name="ui_clear_loop">Effacer la boucle</string>
   <string name="ui_ambience_mode">Mode ambiant</string>
   <string name="ui_time_and_network">Horaire et réseau</string>
   <string name="ui_slide_to_unlock">Faites glisser pour déverrouiller</string>
@@ -1868,29 +1866,6 @@ Veuillez redémarrer l’application pour appliquer toutes les modifications.</s
   <string name="lyrics_select_language">Sélectionner la langue cible</string>
 
   <!-- Clip -->
-  <string name="clip_action">Créer un clip</string>
-  <string name="clip_options">Options du clip</string>
-  <string name="clip_crop_action">Recadrer et créer un clip</string>
-  <string name="clip_mark_start">Marquer le début</string>
-  <string name="clip_mark_end">Marquer la fin</string>
-  <string name="clip_crop">Recadrer</string>
-  <string name="clip_save">Enregistrer le clip</string>
-  <string name="clip_cancel">Annuler</string>
-  <string name="clip_done">Terminé</string>
-  <string name="clip_clear">Effacer le clip</string>
-  <string name="clip_start_time">Début : %1$s</string>
-  <string name="clip_end_time">Fin : %1$s</string>
-  <string name="clip_end_not_set">Fin : Non définie</string>
-  <string name="clip_crop_size">Recadrage : %1$d × %2$d</string>
-  <string name="clip_crop_full_frame">Recadrage : Image entière</string>
-  <string name="clip_select_crop">Redimensionnez le cadre pour conserver la zone souhaitée</string>
-  <string name="clip_exporting">Création du clip… %1$d%%</string>
-  <string name="clip_cancelling">Annulation du clip…</string>
-  <string name="clip_saved">%1$s enregistré</string>
-  <string name="clip_invalid_range">Marquez un point de fin après le point de début</string>
-  <string name="clip_video_unavailable">Les dimensions de la vidéo ne sont pas encore disponibles</string>
-  <string name="clip_export_busy">Un autre clip est déjà en cours de création</string>
-  <string name="clip_export_failed">Échec du clip : %1$s</string>
 
   <!-- Seerr (Overseerr / Jellyseerr) Requests & Discover -->
   <string name="seerr_requests">Demandes</string>

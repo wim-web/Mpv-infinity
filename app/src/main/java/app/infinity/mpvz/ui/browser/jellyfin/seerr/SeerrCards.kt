@@ -277,7 +277,7 @@ fun SeerrRequestStatusChip(
     RequestStatus.FAILED -> Triple(
       Color(0xFFB71C1C).copy(alpha = 0.85f),
       Color(0xFFFFEBEE),
-      R.string.clip_cancel,
+      R.string.generic_cancel,
     )
   }
 

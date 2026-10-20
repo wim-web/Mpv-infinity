@@ -641,7 +641,6 @@ fun FileSystemBrowserScreen(path: String? = null) {
       },
       floatingActionButton = {
         val navigationBarHeight = app.infinity.mpvz.ui.browser.LocalNavigationBarHeight.current
-        val miniPlayerClearance = app.infinity.mpvz.ui.browser.NavigationBarState.miniPlayerClearance
         if (isAtRoot) {
           val isFabShouldBeVisible =
             showQuickPlayFab &&
@@ -653,7 +652,7 @@ fun FileSystemBrowserScreen(path: String? = null) {
           FloatingActionButtonMenu(
             modifier =
               Modifier.padding(
-                bottom = (navigationBarHeight - 16.dp).coerceAtLeast(0.dp) + miniPlayerClearance,
+                bottom = (navigationBarHeight - 16.dp).coerceAtLeast(0.dp),
               ),
             expanded = isFabExpanded.value && !quickPlayFabDirect,
             button = {

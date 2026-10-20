@@ -152,7 +152,6 @@ enum class Sheets {
 
 enum class Panels {
   None,
-  Clip,
   SubtitleSettings,
   SubtitleDelay,
   AudioDelay,

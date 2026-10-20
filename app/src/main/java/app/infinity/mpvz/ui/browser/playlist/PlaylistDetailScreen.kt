@@ -290,7 +290,6 @@ data class PlaylistDetailScreen(
     }
 
     val navigationBarHeight = app.infinity.mpvz.ui.browser.LocalNavigationBarHeight.current
-    val miniPlayerClearance = app.infinity.mpvz.ui.browser.NavigationBarState.miniPlayerClearance
 
     Scaffold(
       topBar = {
@@ -519,7 +518,7 @@ data class PlaylistDetailScreen(
           ExtendedFloatingActionButton(
             modifier =
               Modifier.padding(
-                bottom = (navigationBarHeight - 16.dp).coerceAtLeast(0.dp) + miniPlayerClearance,
+                bottom = (navigationBarHeight - 16.dp).coerceAtLeast(0.dp),
               ),
             onClick = { backStack.add(PlaylistAddVideosScreen(playlistId, isAudio = isAudioPlaylist)) },
             icon = { Icon(Icons.RoundedFilled.Add, contentDescription = null) },

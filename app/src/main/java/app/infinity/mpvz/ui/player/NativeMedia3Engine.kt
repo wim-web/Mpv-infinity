@@ -187,8 +187,6 @@ class NativeMedia3Engine(context: Context) {
   private var subtitlePresentationVisible = true
   private val subtitleStyleRunnable = Runnable { applyAssStyle() }
   private val subtitleViewRunnable = Runnable { configureSubtitleView() }
-  private var loopASeconds: Double? = null
-  private var loopBSeconds: Double? = null
   private val loopHandler = Handler(Looper.getMainLooper())
   private var pendingSeekPositionMs: Long? = null
   private var pendingSeekDisplayPositionMs: Long? = null
@@ -214,17 +212,6 @@ class NativeMedia3Engine(context: Context) {
       // Keep the seekbar responsive without forcing a 10 Hz Compose/native snapshot loop on a
       // 4K HDR decoder. Direct commands remain immediate; the UI only needs a quarter-second tick.
       loopHandler.postDelayed(this, 250L)
-    }
-  }
-  private val loopRunnable = object : Runnable {
-    override fun run() {
-      val a = loopASeconds
-      val b = loopBSeconds
-      if (a != null && b != null && b > a && player.currentPosition >= (b * 1000.0).toLong()) {
-        player.seekTo((a * 1000.0).toLong())
-        if (!player.isPlaying) player.play()
-      }
-      if (a != null && b != null) loopHandler.postDelayed(this, 150L)
     }
   }
   private var subtitleStyle = CaptionStyleCompat(
@@ -906,27 +893,6 @@ class NativeMedia3Engine(context: Context) {
     startTimelineUpdates()
   }
 
-  fun setLoopA(positionSeconds: Double?) {
-    loopASeconds = positionSeconds?.coerceAtLeast(0.0)
-    restartLoopMonitor()
-  }
-
-  fun setLoopB(positionSeconds: Double?) {
-    loopBSeconds = positionSeconds?.coerceAtLeast(0.0)
-    restartLoopMonitor()
-  }
-
-  fun clearLoop() {
-    loopASeconds = null
-    loopBSeconds = null
-    loopHandler.removeCallbacks(loopRunnable)
-  }
-
-  private fun restartLoopMonitor() {
-    loopHandler.removeCallbacks(loopRunnable)
-    if (loopASeconds != null && loopBSeconds != null) loopHandler.post(loopRunnable)
-  }
-
   fun setSpeed(speed: Float, pitchCorrection: Boolean = true) {
     // Keep Native aligned with the shared speed sheet and ViewModel, both of which support up to
     // 8x. The old 4x clamp made the 4x-8x presets appear selectable but silently ineffective.
@@ -1061,7 +1027,6 @@ class NativeMedia3Engine(context: Context) {
   fun removeListener(listener: Player.Listener) = player.removeListener(listener)
 
   fun stop() {
-    clearLoop()
     loopHandler.removeCallbacks(timelineRunnable)
     loopHandler.removeCallbacks(seekRunnable)
     pendingSeekPositionMs = null
@@ -1080,7 +1045,6 @@ class NativeMedia3Engine(context: Context) {
   }
 
   fun release() {
-    clearLoop()
     loopHandler.removeCallbacks(timelineRunnable)
     loopHandler.removeCallbacks(seekRunnable)
     pendingSeekPositionMs = null

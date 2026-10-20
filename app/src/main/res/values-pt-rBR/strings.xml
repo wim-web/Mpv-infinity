@@ -1103,7 +1103,6 @@ Reinicie o aplicativo para que todas as alterações entrem em vigor.</string>
   <string name="btn_label_shuffle">Aleatório</string>
   <string name="btn_label_mirror">Inversão horizontal</string>
   <string name="btn_label_vertical_flip">Inversão vertical</string>
-  <string name="btn_label_ab_loop">Loop A-B</string>
   <string name="btn_label_custom_skip">Pulo personalizado</string>
   <string name="btn_label_background_playback">Reprodução em segundo plano</string>
   <string name="btn_label_ambient">Modo ambiente</string>
@@ -1321,7 +1320,6 @@ Reinicie o aplicativo para que todas as alterações entrem em vigor.</string>
   <string name="ui_take_screenshot">Fazer captura de tela</string>
   <string name="ui_next_frame">Próximo quadro</string>
   <string name="ui_vertical_flip">Inversão vertical</string>
-  <string name="ui_clear_loop">Limpar loop</string>
   <string name="ui_ambience_mode">Modo ambiente</string>
   <string name="ui_time_and_network">Hora e rede</string>
   <string name="ui_slide_to_unlock">Deslize para desbloquear</string>
@@ -1868,29 +1866,6 @@ Reinicie o aplicativo para que todas as alterações entrem em vigor.</string>
   <string name="lyrics_select_language">Selecionar idioma de destino</string>
 
   <!-- Clip -->
-  <string name="clip_action">Criar clipe</string>
-  <string name="clip_options">Opções do clipe</string>
-  <string name="clip_crop_action">Recortar e criar clipe</string>
-  <string name="clip_mark_start">Marcar início</string>
-  <string name="clip_mark_end">Marcar fim</string>
-  <string name="clip_crop">Recortar</string>
-  <string name="clip_save">Salvar clipe</string>
-  <string name="clip_cancel">Cancelar</string>
-  <string name="clip_done">Concluído</string>
-  <string name="clip_clear">Limpar clipe</string>
-  <string name="clip_start_time">Início: %1$s</string>
-  <string name="clip_end_time">Fim: %1$s</string>
-  <string name="clip_end_not_set">Fim: Não definido</string>
-  <string name="clip_crop_size">Recorte: %1$d × %2$d</string>
-  <string name="clip_crop_full_frame">Recorte: Quadro inteiro</string>
-  <string name="clip_select_crop">Redimensione o quadro para manter a área desejada</string>
-  <string name="clip_exporting">Criando clipe… %1$d%%</string>
-  <string name="clip_cancelling">Cancelando clipe…</string>
-  <string name="clip_saved">%1$s salvo</string>
-  <string name="clip_invalid_range">Marque um ponto final depois do ponto inicial</string>
-  <string name="clip_video_unavailable">As dimensões do vídeo ainda não estão disponíveis</string>
-  <string name="clip_export_busy">Outro clipe já está sendo criado</string>
-  <string name="clip_export_failed">Falha ao criar o clipe: %1$s</string>
 
   <!-- Seerr (Overseerr / Jellyseerr) Requests & Discover -->
   <string name="seerr_requests">Pedidos</string>

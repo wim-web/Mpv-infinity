@@ -1313,7 +1313,6 @@
   <string name="btn_label_shuffle">Shuffle</string>
   <string name="btn_label_mirror">Horizontal Flip</string>
   <string name="btn_label_vertical_flip">Vertical Flip</string>
-  <string name="btn_label_ab_loop">A-B Loop</string>
   <string name="btn_label_custom_skip">Custom Skip</string>
   <string name="btn_label_background_playback">Background Playback</string>
   <string name="btn_label_ambient">Ambience Mode</string>
@@ -1569,7 +1568,6 @@
   <string name="ui_take_screenshot">Take Screenshot</string>
   <string name="ui_next_frame">Next Frame</string>
   <string name="ui_vertical_flip">Vertical Flip</string>
-  <string name="ui_clear_loop">Clear Loop</string>
   <string name="ui_ambience_mode">Ambience Mode</string>
   <string name="ui_time_and_network">Time and Network</string>
   <string name="ui_slide_to_unlock">Slide to Unlock</string>
@@ -2035,31 +2033,6 @@
   <string name="lyrics_select_language">Select Target Language</string>
 
   <!-- Clip -->
-  <string name="clip_end_short">End</string>
-  <string name="clip_start_short">Start</string>
-  <string name="clip_action">Create clip</string>
-  <string name="clip_options">Clip options</string>
-  <string name="clip_crop_action">Crop &amp; create clip</string>
-  <string name="clip_mark_start">Mark start</string>
-  <string name="clip_mark_end">Mark end</string>
-  <string name="clip_crop">Crop</string>
-  <string name="clip_save">Save clip</string>
-  <string name="clip_cancel">Cancel</string>
-  <string name="clip_done">Done</string>
-  <string name="clip_clear">Clear clip</string>
-  <string name="clip_start_time">Start: %1$s</string>
-  <string name="clip_end_time">End: %1$s</string>
-  <string name="clip_end_not_set">End: Not set</string>
-  <string name="clip_crop_size">Crop: %1$d × %2$d</string>
-  <string name="clip_crop_full_frame">Crop: Full frame</string>
-  <string name="clip_select_crop">Resize the frame to keep</string>
-  <string name="clip_exporting">Creating clip… %1$d%%</string>
-  <string name="clip_cancelling">Cancelling clip…</string>
-  <string name="clip_saved">Saved %1$s</string>
-  <string name="clip_invalid_range">Mark an end point after the start point</string>
-  <string name="clip_video_unavailable">Video dimensions are not available yet</string>
-  <string name="clip_export_busy">Another clip is already being created</string>
-  <string name="clip_export_failed">Clip failed: %1$s</string>
 
   <!-- Seerr (Overseerr / Jellyseerr) Requests & Discover -->
   <string name="seerr_requests">Requests</string>
@@ -2262,4 +2235,13 @@
   <string name="music_source_jellyfin">Jellyfin Music</string>
   <string name="music_source_navidrome">Navidrome Music</string>
   <string name="music_source_manage_servers">Media Servers</string>
+  <string name="mini_player_seek">Playback position</string>
+  <string name="mini_player_seek_hint">Slide to seek</string>
+  <string name="mini_player_no_seek">Seeking unavailable</string>
+  <string name="mini_player_stop">Stop playback</string>
+  <string name="mini_player_pause">Pause</string>
+  <string name="mini_player_next">Next item</string>
+  <string name="mini_player_repeat_off">OFF</string>
+  <string name="mini_player_repeat_one">ONE</string>
+  <string name="mini_player_repeat_all">LIST</string>
 </resources>

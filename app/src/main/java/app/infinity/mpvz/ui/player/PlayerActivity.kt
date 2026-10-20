@@ -357,12 +357,6 @@ class PlayerActivity :
   override fun nativePlaybackDurationSeconds(): Double =
     nativeEngine.snapshot.value.durationMs.coerceAtLeast(0L) / 1000.0
 
-  override fun nativeSetLoopA(positionSeconds: Double?) = nativeEngine.setLoopA(positionSeconds)
-
-  override fun nativeSetLoopB(positionSeconds: Double?) = nativeEngine.setLoopB(positionSeconds)
-
-  override fun nativeClearLoop() = nativeEngine.clearLoop()
-
   override fun nativeSetSpeed(speed: Float) {
     nativeEngine.setSpeed(speed, audioPreferences.audioPitchCorrection.get())
   }
@@ -5005,9 +4999,6 @@ class PlayerActivity :
       jellyfinSessionReporter?.reportPlaybackStart((viewModel.pos ?: 0).toLong() * 1000L)
       startJellyfinProgressLoop()
     }
-
-    // Reset AB loop values when video changes
-    viewModel.clearABLoop()
 
     // Drop the old ambient shader file, but keep the user's ambient preference/style.
     viewModel.prepareAmbientForNewVideo()

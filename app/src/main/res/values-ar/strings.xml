@@ -1103,7 +1103,6 @@
   <string name="btn_label_shuffle">تشغيل عشوائي</string>
   <string name="btn_label_mirror">انعكاس أفقي</string>
   <string name="btn_label_vertical_flip">انعكاس عمودي</string>
-  <string name="btn_label_ab_loop">تكرار A-B</string>
   <string name="btn_label_custom_skip">تخطٍ مخصّص</string>
   <string name="btn_label_background_playback">التشغيل في الخلفية</string>
   <string name="btn_label_ambient">وضع الإضاءة المحيطية</string>
@@ -1321,7 +1320,6 @@
   <string name="ui_take_screenshot">التقاط لقطة شاشة</string>
   <string name="ui_next_frame">الإطار التالي</string>
   <string name="ui_vertical_flip">انعكاس عمودي</string>
-  <string name="ui_clear_loop">مسح التكرار</string>
   <string name="ui_ambience_mode">وضع الإضاءة المحيطية</string>
   <string name="ui_time_and_network">الوقت والشبكة</string>
   <string name="ui_slide_to_unlock">اسحب لإلغاء القفل</string>
@@ -1870,29 +1868,6 @@
   <string name="lyrics_select_language">تحديد اللغة المستهدفة</string>
 
   <!-- Clip -->
-  <string name="clip_action">إنشاء مقطع</string>
-  <string name="clip_options">خيارات المقطع</string>
-  <string name="clip_crop_action">اقتصاص وإنشاء مقطع</string>
-  <string name="clip_mark_start">تحديد البداية</string>
-  <string name="clip_mark_end">تحديد النهاية</string>
-  <string name="clip_crop">اقتصاص</string>
-  <string name="clip_save">حفظ المقطع</string>
-  <string name="clip_cancel">إلغاء</string>
-  <string name="clip_done">تم</string>
-  <string name="clip_clear">مسح المقطع</string>
-  <string name="clip_start_time">البداية: %1$s</string>
-  <string name="clip_end_time">النهاية: %1$s</string>
-  <string name="clip_end_not_set">النهاية: غير محددة</string>
-  <string name="clip_crop_size">الاقتصاص: %1$d × %2$d</string>
-  <string name="clip_crop_full_frame">الاقتصاص: الإطار الكامل</string>
-  <string name="clip_select_crop">غيّر حجم الإطار للاحتفاظ بالجزء المطلوب</string>
-  <string name="clip_exporting">جارٍ إنشاء المقطع… %1$d%%</string>
-  <string name="clip_cancelling">جارٍ إلغاء المقطع…</string>
-  <string name="clip_saved">تم حفظ %1$s</string>
-  <string name="clip_invalid_range">حدّد نقطة نهاية بعد نقطة البداية</string>
-  <string name="clip_video_unavailable">أبعاد الفيديو غير متاحة بعد</string>
-  <string name="clip_export_busy">يجري إنشاء مقطع آخر بالفعل</string>
-  <string name="clip_export_failed">فشل إنشاء المقطع: %1$s</string>
 
   <!-- Seerr (Overseerr / Jellyseerr) Requests & Discover -->
   <string name="seerr_requests">الطلبات</string>

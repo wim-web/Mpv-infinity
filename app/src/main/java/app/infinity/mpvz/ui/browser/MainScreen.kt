@@ -10,7 +10,6 @@
 package app.infinity.mpvz.ui.browser
 
 import android.annotation.SuppressLint
-import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -60,7 +59,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -184,7 +182,6 @@ object MainScreen : Screen {
     val hideNavigationBar = NavigationBarState.shouldHideNavigationBar
     val isPermissionDenied = NavigationBarState.isPermissionDenied
     val isDualPaneFolderSelected = NavigationBarState.isDualPaneFolderSelected
-    val isMiniPlayerVisible = NavigationBarState.isMiniPlayerVisible
 
     val visibleTabs =
       remember(
@@ -206,17 +203,6 @@ object MainScreen : Screen {
           if (showAudiobooksTab) add(MainTab.AUDIOBOOKS)
         }
       }
-
-    // Track whether the floating pill nav bar is on screen so the mini player can
-    // sit at the very bottom when navigating to screens without it.
-    DisposableEffect(Unit) {
-      onDispose {
-        NavigationBarState.isNavBarVisible = false
-      }
-    }
-    SideEffect {
-      NavigationBarState.isNavBarVisible = !hideNavigationBar && visibleTabs.isNotEmpty() && !isPermissionDenied
-    }
 
     val coroutineScope = rememberCoroutineScope()
 
@@ -312,10 +298,6 @@ object MainScreen : Screen {
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
 
-    val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
-    val isTablet = configuration.smallestScreenWidthDp >= 600
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-
     val selectedTabTitleLength =
       when (selectedTab) {
         MainTab.HOME -> 36.dp
@@ -350,7 +332,6 @@ object MainScreen : Screen {
     val targetOffsetFraction =
       when {
         isDualPaneFolderSelected && selectedTab == MainTab.HOME -> 0.2f
-        isMiniPlayerVisible && (isLandscape || isTablet) -> 0f
         else -> 0.5f
       }
 
@@ -364,10 +345,8 @@ object MainScreen : Screen {
       label = "nav_bar_position",
     )
 
-    // On portrait phones the edge-to-edge mini player sits above the pill nav bar,
-    // so screens/FABs must clear it.
-    val miniPlayerNavClearance = if (isMiniPlayerVisible && isPortrait && !isTablet) 96.dp else 0.dp
-    val contentBottomPadding = remember(miniPlayerNavClearance) { 88.dp + miniPlayerNavClearance }
+    // The root layout reserves the mini player's measured height for every screen.
+    val contentBottomPadding = NavigationBarState.navigationBarClearance
     val context = androidx.compose.ui.platform.LocalContext.current
     val jellyfinViewModel: app.infinity.mpvz.ui.browser.jellyfin.JellyfinViewModel =
       androidx.lifecycle.viewmodel.compose.viewModel(
@@ -483,8 +462,7 @@ object MainScreen : Screen {
             val density = LocalDensity.current
             var measuredWidthDp by remember { mutableStateOf(220.dp) }
             val isDualPaneActive = isDualPaneFolderSelected && selectedTab == MainTab.HOME
-            val isMiniPlayerActive = isMiniPlayerVisible && (isLandscape || isTablet)
-            val isCustomAligned = isDualPaneActive || isMiniPlayerActive
+            val isCustomAligned = isDualPaneActive
 
             val animatedWidthDp by animateDpAsState(
               targetValue = measuredWidthDp,
@@ -500,8 +478,6 @@ object MainScreen : Screen {
               when {
                 isDualPaneActive ->
                   ((containerWidth * 0.20f) - (animatedWidthDp / 2)).coerceAtLeast(16.dp)
-                isMiniPlayerActive ->
-                  16.dp
                 else ->
                   ((containerWidth - animatedWidthDp) / 2).coerceAtLeast(16.dp)
               }
@@ -515,16 +491,6 @@ object MainScreen : Screen {
                 ),
               label = "pill_left_padding",
             )
-
-            SideEffect {
-              val targetLeft = if (isCustomAligned) animatedLeftPadding else ((containerWidth - animatedWidthDp) / 2).coerceAtLeast(16.dp)
-              if (NavigationBarState.navbarLeftOffset != targetLeft) {
-                NavigationBarState.navbarLeftOffset = targetLeft
-              }
-              if (NavigationBarState.navbarWidth != animatedWidthDp) {
-                NavigationBarState.navbarWidth = animatedWidthDp
-              }
-            }
 
             Box(
               modifier =

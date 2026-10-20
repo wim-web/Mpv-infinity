@@ -379,9 +379,6 @@ fun PlayerControls(
   val customButtons by viewModel.customButtons.collectAsState()
   val showVideoQualitySelector by viewModel.showVideoQualitySelector.collectAsState()
 
-  val abLoop by viewModel.abLoopState.collectAsState()
-  val abLoopA = abLoop.a
-  val abLoopB = abLoop.b
   val repeatMode by viewModel.repeatMode.collectAsState()
   val shuffleEnabled by viewModel.shuffleEnabled.collectAsState()
   val transformState by viewModel.transformState.collectAsState()
@@ -1906,8 +1903,6 @@ fun PlayerControls(
               seekbarStyle = seekbarStyle,
               useWavySeekbar = useWavySeekbar,
               timerTextColor = Color.White,
-              loopStart = abLoopA?.toFloat(),
-              loopEnd = abLoopB?.toFloat(),
               bufferDuration = stableDemuxerCacheTime.takeIf { showBufferedRange && it > 0f },
               isPortrait = isPortrait,
             )
@@ -2222,8 +2217,6 @@ fun PlayerControls(
         repeatMode,
         shuffleEnabled,
         transformState,
-        abLoopA,
-        abLoopB,
         isHdrOutputEnabled,
         isAmbientEnabled,
         backgroundPlaybackEnabled,
@@ -2236,7 +2229,6 @@ fun PlayerControls(
           if (shuffleEnabled) add(PlayerButton.SHUFFLE)
           if (transformState.isMirrored) add(PlayerButton.MIRROR)
           if (transformState.isVerticalFlipped) add(PlayerButton.VERTICAL_FLIP)
-          if (abLoopA != null || abLoopB != null) add(PlayerButton.AB_LOOP)
           if (isHdrOutputEnabled) add(PlayerButton.HDR_MODE)
           if (isAmbientEnabled) add(PlayerButton.AMBIENT_MODE)
           if (backgroundPlaybackEnabled) add(PlayerButton.BACKGROUND_PLAYBACK)
